@@ -8,6 +8,7 @@ const path = require("path");
 const { testConnection } = require("./config/database");
 const authRoutes = require("./routes/auth");
 const gameRoutes = require("./routes/game");
+const adminRoutes = require("./routes/admin");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -71,6 +72,7 @@ app.use(express.static(path.join(__dirname, "public")));
 // API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/game", gameRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
@@ -80,6 +82,11 @@ app.get("/api/health", (req, res) => {
     timestamp: new Date().toISOString(),
     version: "1.0.0",
   });
+});
+
+// Admin panel route
+app.get("/admin", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "admin.html"));
 });
 
 // Serve frontend

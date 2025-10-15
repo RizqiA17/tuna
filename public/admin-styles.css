@@ -1,0 +1,1037 @@
+/* Admin Panel Styles */
+
+/* CSS Custom Properties for Admin Panel */
+:root {
+  --admin-bg-primary: #ffffff;
+  --admin-bg-secondary: #f8f9fa;
+  --admin-bg-tertiary: #e9ecef;
+  --admin-text-primary: #2c3e50;
+  --admin-text-secondary: #495057;
+  --admin-text-muted: #6c757d;
+  --admin-accent-primary: #667eea;
+  --admin-accent-secondary: #764ba2;
+  --admin-border-color: #e9ecef;
+  --admin-shadow-color: rgba(0, 0, 0, 0.1);
+  --admin-card-bg: #ffffff;
+  --admin-input-bg: #ffffff;
+  --admin-header-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* Dark Mode Variables for Admin */
+[data-theme="dark"] {
+  --admin-bg-primary: #1a1a2e;
+  --admin-bg-secondary: #16213e;
+  --admin-bg-tertiary: #0f3460;
+  --admin-text-primary: #e8e8e8;
+  --admin-text-secondary: #b8b8b8;
+  --admin-text-muted: #888888;
+  --admin-accent-primary: #4f46e5;
+  --admin-accent-secondary: #6366f1;
+  --admin-border-color: rgba(255, 255, 255, 0.1);
+  --admin-shadow-color: rgba(0, 0, 0, 0.3);
+  --admin-card-bg: rgba(22, 33, 62, 0.9);
+  --admin-input-bg: rgba(15, 52, 96, 0.8);
+  --admin-header-bg: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+}
+
+/* Admin Login Screen */
+.admin-login-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--admin-header-bg);
+    padding: 2rem;
+    transition: background 0.3s ease;
+}
+
+.admin-login-container {
+    background: var(--admin-card-bg);
+    border-radius: 16px;
+    padding: 3rem;
+    box-shadow: 0 20px 40px var(--admin-shadow-color);
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+    border: 1px solid var(--admin-border-color);
+    transition: all 0.3s ease;
+}
+
+.admin-login-header h1 {
+    margin: 0 0 0.5rem 0;
+    color: var(--admin-text-primary);
+    font-size: 1.8rem;
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+.admin-login-header p {
+    margin: 0 0 2rem 0;
+    color: var(--admin-text-muted);
+    font-size: 0.9rem;
+    transition: color 0.3s ease;
+}
+
+.admin-login-form {
+    margin-bottom: 2rem;
+}
+
+.admin-login-form .form-group {
+    margin-bottom: 1.5rem;
+    text-align: left;
+}
+
+.admin-login-form label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--admin-text-secondary);
+    transition: color 0.3s ease;
+}
+
+.admin-login-form input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid var(--admin-border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+    background: var(--admin-input-bg);
+    color: var(--admin-text-primary);
+    transition: all 0.3s ease;
+}
+
+.admin-login-form input:focus {
+    outline: none;
+    border-color: var(--admin-accent-primary);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.admin-login-info {
+    background: var(--admin-bg-secondary);
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: left;
+    border: 1px solid var(--admin-border-color);
+    transition: all 0.3s ease;
+}
+
+.admin-login-info p {
+    margin: 0.25rem 0;
+    font-size: 0.9rem;
+    color: var(--admin-text-secondary);
+    transition: color 0.3s ease;
+}
+
+.admin-login-info code {
+    background: var(--admin-bg-tertiary);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    color: #e74c3c;
+    transition: background 0.3s ease;
+}
+
+/* Admin Panel Content */
+.admin-panel-content {
+    min-height: 100vh;
+    background: var(--admin-bg-secondary);
+    transition: background 0.3s ease;
+}
+
+.admin-header {
+    background: var(--admin-header-bg);
+    color: white;
+    padding: 1.5rem 2rem;
+    box-shadow: 0 4px 6px var(--admin-shadow-color);
+    transition: all 0.3s ease;
+}
+
+.admin-header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.admin-title h1 {
+    margin: 0;
+    font-size: 1.8rem;
+    font-weight: 600;
+}
+
+.admin-title p {
+    margin: 0.25rem 0 0 0;
+    opacity: 0.9;
+    font-size: 0.9rem;
+}
+
+.admin-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.admin-nav {
+    background: var(--admin-bg-secondary);
+    border-bottom: 1px solid var(--admin-border-color);
+    padding: 0 2rem;
+    display: flex;
+    gap: 0.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    transition: all 0.3s ease;
+}
+
+.nav-btn {
+    background: none;
+    border: none;
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    color: var(--admin-text-muted);
+}
+
+.nav-btn:hover {
+    background: var(--admin-bg-tertiary);
+    color: var(--admin-text-secondary);
+}
+
+.nav-btn.active {
+    color: var(--admin-accent-primary);
+    border-bottom-color: var(--admin-accent-primary);
+    background: var(--admin-card-bg);
+}
+
+.admin-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.admin-section {
+    display: none;
+}
+
+.admin-section.active {
+    display: block;
+}
+
+.section-header {
+    margin-bottom: 2rem;
+}
+
+.section-header h2 {
+    margin: 0 0 0.5rem 0;
+    color: var(--admin-text-primary);
+    font-size: 1.5rem;
+    transition: color 0.3s ease;
+}
+
+.section-header p {
+    margin: 0;
+    color: var(--admin-text-muted);
+    font-size: 0.9rem;
+    transition: color 0.3s ease;
+}
+
+/* Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: var(--admin-card-bg);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px var(--admin-shadow-color);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.3s ease;
+    border: 1px solid var(--admin-border-color);
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px var(--admin-shadow-color);
+}
+
+.stat-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: white;
+    background: linear-gradient(135deg, var(--admin-accent-primary) 0%, var(--admin-accent-secondary) 100%);
+    transition: all 0.3s ease;
+}
+
+.stat-content h3 {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--admin-text-primary);
+    transition: color 0.3s ease;
+}
+
+.stat-content p {
+    margin: 0.25rem 0 0 0;
+    color: var(--admin-text-muted);
+    font-size: 0.9rem;
+    transition: color 0.3s ease;
+}
+
+/* Scenario Stats */
+.scenario-stats {
+    background: var(--admin-card-bg);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px var(--admin-shadow-color);
+    border: 1px solid var(--admin-border-color);
+    transition: all 0.3s ease;
+}
+
+.scenario-stats h3 {
+    margin: 0 0 1rem 0;
+    color: var(--admin-text-primary);
+    font-size: 1.2rem;
+    transition: color 0.3s ease;
+}
+
+.scenario-stats-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.scenario-stat-item {
+    padding: 1rem;
+    background: var(--admin-bg-secondary);
+    border-radius: 8px;
+    border-left: 4px solid var(--admin-accent-primary);
+    border: 1px solid var(--admin-border-color);
+    transition: all 0.3s ease;
+}
+
+.scenario-stat-item h4 {
+    margin: 0 0 0.5rem 0;
+    color: var(--admin-text-primary);
+    font-size: 1rem;
+    transition: color 0.3s ease;
+}
+
+.scenario-stat-item .stat-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+}
+
+.scenario-stat-item .stat-row:last-child {
+    margin-bottom: 0;
+}
+
+/* Teams Table */
+.teams-filters {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: var(--admin-bg-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--admin-border-color);
+    transition: all 0.3s ease;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.filter-group label {
+    font-weight: 500;
+    color: var(--admin-text-secondary);
+    font-size: 0.9rem;
+    transition: color 0.3s ease;
+}
+
+.filter-group input,
+.filter-group select {
+    padding: 0.5rem;
+    border: 1px solid var(--admin-border-color);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    background: var(--admin-input-bg);
+    color: var(--admin-text-primary);
+    transition: all 0.3s ease;
+}
+
+.teams-table-container {
+    background: var(--admin-card-bg);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px var(--admin-shadow-color);
+    border: 1px solid var(--admin-border-color);
+    transition: all 0.3s ease;
+}
+
+.teams-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.teams-table th {
+    background: var(--admin-bg-secondary);
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--admin-text-secondary);
+    border-bottom: 2px solid var(--admin-border-color);
+    transition: all 0.3s ease;
+}
+
+.teams-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--admin-border-color);
+    vertical-align: middle;
+    color: var(--admin-text-primary);
+    transition: all 0.3s ease;
+}
+
+.teams-table tr:hover {
+    background: var(--admin-bg-secondary);
+}
+
+.team-status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.team-status.active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.team-status.completed {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.team-status.inactive {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Scenarios Grid */
+.scenarios-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.scenario-card {
+    background: var(--admin-card-bg);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px var(--admin-shadow-color);
+    transition: all 0.3s ease;
+    border: 1px solid var(--admin-border-color);
+}
+
+.scenario-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px var(--admin-shadow-color);
+}
+
+.scenario-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.scenario-header h3 {
+    margin: 0;
+    color: var(--admin-text-primary);
+    font-size: 1.1rem;
+    transition: color 0.3s ease;
+}
+
+.scenario-position {
+    background: var(--admin-accent-primary);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.scenario-stats {
+    margin-bottom: 1rem;
+}
+
+.scenario-stats .stat {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.scenario-stats .stat:last-child {
+    margin-bottom: 0;
+}
+
+.scenario-stats .label {
+    color: var(--admin-text-muted);
+    transition: color 0.3s ease;
+}
+
+.scenario-stats .value {
+    font-weight: 600;
+    color: var(--admin-text-primary);
+    transition: color 0.3s ease;
+}
+
+/* Leaderboard */
+.leaderboard-filters {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.filter-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--admin-border-color);
+    background: var(--admin-card-bg);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+    color: var(--admin-text-primary);
+}
+
+.filter-btn:hover {
+    background: var(--admin-bg-secondary);
+}
+
+.filter-btn.active {
+    background: var(--admin-accent-primary);
+    color: white;
+    border-color: var(--admin-accent-primary);
+}
+
+.leaderboard-table-container {
+    background: var(--admin-card-bg);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px var(--admin-shadow-color);
+    border: 1px solid var(--admin-border-color);
+    transition: all 0.3s ease;
+}
+
+.leaderboard-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.leaderboard-table th {
+    background: var(--admin-bg-secondary);
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--admin-text-secondary);
+    border-bottom: 2px solid var(--admin-border-color);
+    transition: all 0.3s ease;
+}
+
+.leaderboard-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--admin-border-color);
+    vertical-align: middle;
+    color: var(--admin-text-primary);
+    transition: all 0.3s ease;
+}
+
+.leaderboard-table tr:hover {
+    background: var(--admin-bg-secondary);
+}
+
+.rank-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.rank-badge.rank-1 {
+    background: #ffd700;
+    color: #8b6914;
+}
+
+.rank-badge.rank-2 {
+    background: #c0c0c0;
+    color: #666;
+}
+
+.rank-badge.rank-3 {
+    background: #cd7f32;
+    color: #8b4513;
+}
+
+.rank-badge.rank-other {
+    background: var(--admin-bg-tertiary);
+    color: var(--admin-text-secondary);
+    transition: all 0.3s ease;
+}
+
+/* Analytics */
+.analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 1.5rem;
+}
+
+.analytics-card {
+    background: var(--admin-card-bg);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px var(--admin-shadow-color);
+    border: 1px solid var(--admin-border-color);
+    transition: all 0.3s ease;
+}
+
+.analytics-card h3 {
+    margin: 0 0 1rem 0;
+    color: var(--admin-text-primary);
+    font-size: 1.2rem;
+    transition: color 0.3s ease;
+}
+
+.chart-container {
+    height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--admin-bg-secondary);
+    border-radius: 8px;
+    color: var(--admin-text-muted);
+    border: 1px solid var(--admin-border-color);
+    transition: all 0.3s ease;
+}
+
+/* Modals */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    background-color: var(--admin-card-bg);
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: 0 10px 30px var(--admin-shadow-color);
+    animation: modalSlideIn 0.3s ease;
+    border: 1px solid var(--admin-border-color);
+    transition: all 0.3s ease;
+}
+
+.modal-content.large {
+    max-width: 1200px;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--admin-border-color);
+    background: var(--admin-bg-secondary);
+    transition: all 0.3s ease;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: var(--admin-text-primary);
+    font-size: 1.3rem;
+    transition: color 0.3s ease;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--admin-text-muted);
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.modal-close:hover {
+    background: var(--admin-bg-tertiary);
+    color: var(--admin-text-secondary);
+}
+
+.modal-body {
+    padding: 1.5rem;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+/* Team Details */
+.team-info {
+    margin-bottom: 1.5rem;
+}
+
+.team-info h4 {
+    margin: 0 0 0.5rem 0;
+    color: var(--admin-text-primary);
+    font-size: 1.1rem;
+    transition: color 0.3s ease;
+}
+
+.team-info p {
+    margin: 0.25rem 0;
+    color: var(--admin-text-muted);
+    font-size: 0.9rem;
+    transition: color 0.3s ease;
+}
+
+.team-players {
+    margin-bottom: 1.5rem;
+}
+
+.team-players h4 {
+    margin: 0 0 1rem 0;
+    color: var(--admin-text-primary);
+    font-size: 1.1rem;
+    transition: color 0.3s ease;
+}
+
+.player-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.player-tag {
+    background: var(--admin-bg-tertiary);
+    color: var(--admin-text-secondary);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.team-decisions {
+    margin-top: 1.5rem;
+}
+
+.team-decisions h4 {
+    margin: 0 0 1rem 0;
+    color: var(--admin-text-primary);
+    font-size: 1.1rem;
+    transition: color 0.3s ease;
+}
+
+.decision-item {
+    background: var(--admin-bg-secondary);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid var(--admin-accent-primary);
+    border: 1px solid var(--admin-border-color);
+    transition: all 0.3s ease;
+}
+
+.decision-item:last-child {
+    margin-bottom: 0;
+}
+
+.decision-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.decision-position {
+    font-weight: 600;
+    color: var(--admin-text-primary);
+    transition: color 0.3s ease;
+}
+
+.decision-score {
+    background: var(--admin-accent-primary);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.decision-content {
+    margin-bottom: 0.5rem;
+}
+
+.decision-content h5 {
+    margin: 0 0 0.25rem 0;
+    color: var(--admin-text-secondary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+.decision-content p {
+    margin: 0;
+    color: var(--admin-text-muted);
+    font-size: 0.85rem;
+    line-height: 1.4;
+    transition: color 0.3s ease;
+}
+
+/* Scenario Decisions */
+.scenario-info {
+    background: var(--admin-bg-secondary);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--admin-border-color);
+    transition: all 0.3s ease;
+}
+
+.scenario-info h4 {
+    margin: 0 0 0.5rem 0;
+    color: var(--admin-text-primary);
+    font-size: 1.1rem;
+    transition: color 0.3s ease;
+}
+
+.scenario-info p {
+    margin: 0;
+    color: var(--admin-text-muted);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    transition: color 0.3s ease;
+}
+
+.decisions-list {
+    /* Remove fixed height and overflow to use parent scroll */
+    max-height: none;
+    overflow: visible;
+}
+
+.decision-card {
+    background: var(--admin-card-bg);
+    border: 1px solid var(--admin-border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+}
+
+.decision-card:hover {
+    box-shadow: 0 2px 8px var(--admin-shadow-color);
+}
+
+.decision-card:last-child {
+    margin-bottom: 0;
+}
+
+.decision-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--admin-border-color);
+}
+
+.decision-team {
+    font-weight: 600;
+    color: var(--admin-text-primary);
+    transition: color 0.3s ease;
+}
+
+.decision-score-badge {
+    background: var(--admin-accent-primary);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.decision-content-section {
+    margin-bottom: 0.75rem;
+}
+
+.decision-content-section:last-child {
+    margin-bottom: 0;
+}
+
+.decision-content-section h5 {
+    margin: 0 0 0.5rem 0;
+    color: var(--admin-text-secondary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+.decision-content-section p {
+    margin: 0;
+    color: var(--admin-text-muted);
+    font-size: 0.85rem;
+    line-height: 1.4;
+    background: var(--admin-bg-tertiary);
+    padding: 0.75rem;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.loading-overlay.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading-spinner {
+    text-align: center;
+    color: white;
+}
+
+.loading-spinner i {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.loading-spinner p {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .admin-header-content {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+    
+    .admin-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .admin-nav {
+        padding: 0 1rem;
+        overflow-x: auto;
+    }
+    
+    .nav-btn {
+        white-space: nowrap;
+        padding: 0.75rem 1rem;
+    }
+    
+    .admin-content {
+        padding: 1rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .scenarios-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .analytics-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .teams-filters {
+        flex-direction: column;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+    }
+    
+    .teams-table,
+    .leaderboard-table {
+        font-size: 0.8rem;
+    }
+    
+    .teams-table th,
+    .teams-table td,
+    .leaderboard-table th,
+    .leaderboard-table td {
+        padding: 0.5rem;
+    }
+}
+
+/* Dark mode is now handled by CSS custom properties above */
