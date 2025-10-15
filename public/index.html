@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Petualangan Puncak TUNA</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Loading Screen -->
+      <div id="loading-screen" class="screen active">
+        <div class="loading-container">
+          <div class="loading-animation">
+            <div class="tuna-logo">🐟</div>
+            <div class="loading-text">Petualangan Puncak TUNA</div>
+            <div class="loading-bar">
+              <div class="loading-progress"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Login Screen -->
+      <div id="login-screen" class="screen">
+        <div class="login-container">
+          <div class="game-header">
+            <h1>🐟 Petualangan Puncak TUNA</h1>
+            <p class="game-subtitle">Navigasi Dunia yang Penuh Tantangan</p>
+          </div>
+
+          <div class="auth-tabs">
+            <button class="tab-button active" data-tab="login">Masuk</button>
+            <button class="tab-button" data-tab="register">Daftar Tim</button>
+          </div>
+
+          <!-- Login Form -->
+          <div id="login-form" class="auth-form active">
+            <form id="loginForm">
+              <div class="form-group">
+                <label for="loginTeamName">Nama Tim</label>
+                <input
+                  type="text"
+                  id="loginTeamName"
+                  name="teamName"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="loginPassword">Kata Sandi</label>
+                <input
+                  type="password"
+                  id="loginPassword"
+                  name="password"
+                  required
+                />
+              </div>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-sign-in-alt"></i> Masuk ke Permainan
+              </button>
+            </form>
+          </div>
+
+          <!-- Register Form -->
+          <div id="register-form" class="auth-form">
+            <form id="registerForm">
+              <div class="form-group">
+                <label for="registerTeamName">Nama Tim</label>
+                <input
+                  type="text"
+                  id="registerTeamName"
+                  name="teamName"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="registerPassword">Kata Sandi</label>
+                <input
+                  type="password"
+                  id="registerPassword"
+                  name="password"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="confirmPassword">Konfirmasi Kata Sandi</label>
+                <input
+                  type="password"
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label>Anggota Tim (1-5 orang)</label>
+                <div id="players-list">
+                  <div class="player-input">
+                    <input
+                      type="text"
+                      name="players[0].name"
+                      placeholder="Nama Anggota 1 (Leader)"
+                      required
+                    />
+                    <span class="player-role">👑 Leader</span>
+                  </div>
+                </div>
+                <button type="button" id="addPlayer" class="btn btn-secondary">
+                  <i class="fas fa-plus"></i> Tambah Anggota
+                </button>
+              </div>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-users"></i> Daftar Tim
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Game Screen -->
+      <div id="game-screen" class="screen">
+        <div class="game-container">
+          <!-- Game Header -->
+          <div class="game-header-bar">
+            <div class="team-info">
+              <h2 id="teamName">Tim Adventure</h2>
+              <div class="team-stats">
+                <span class="stat">
+                  <i class="fas fa-map-marker-alt"></i>
+                  Pos <span id="currentPosition">1</span>/7
+                </span>
+                <span class="stat">
+                  <i class="fas fa-star"></i>
+                  <span id="totalScore">0</span> Poin
+                </span>
+              </div>
+            </div>
+            <div class="game-actions">
+              <button id="logoutBtn" class="btn btn-outline">
+                <i class="fas fa-sign-out-alt"></i> Keluar
+              </button>
+            </div>
+          </div>
+
+          <!-- Game Progress -->
+          <div class="game-progress">
+            <div class="progress-track">
+              <div id="progressBar" class="progress-fill"></div>
+            </div>
+            <div class="progress-labels">
+              <span class="label active">Hutan Kabut</span>
+              <span class="label">Sungai Deras</span>
+              <span class="label">Artefak Asing</span>
+              <span class="label">Persimpangan</span>
+              <span class="label">Badai Lereng</span>
+              <span class="label">Teka-teki</span>
+              <span class="label">Puncak Akhir</span>
+            </div>
+          </div>
+
+          <!-- Game Content -->
+          <div class="game-content">
+            <!-- Welcome Screen -->
+            <div id="welcome-content" class="content-section active">
+              <div class="welcome-card">
+                <div class="welcome-icon">🏔️</div>
+                <h3>Selamat Datang di Petualangan Puncak TUNA!</h3>
+                <p>
+                  Tim Anda akan menghadapi 7 tantangan yang semakin kompleks.
+                  Setiap tantangan akan menguji kemampuan Anda dalam menghadapi:
+                </p>
+                <div class="tuna-elements">
+                  <div class="element">
+                    <span class="element-icon">🌪️</span>
+                    <span class="element-name">Turbulensi</span>
+                  </div>
+                  <div class="element">
+                    <span class="element-icon">❓</span>
+                    <span class="element-name">Ketidakpastian</span>
+                  </div>
+                  <div class="element">
+                    <span class="element-icon">🆕</span>
+                    <span class="element-name">Kebaruan</span>
+                  </div>
+                  <div class="element">
+                    <span class="element-icon">🌫️</span>
+                    <span class="element-name">Ambiguitas</span>
+                  </div>
+                </div>
+                <button id="startGameBtn" class="btn btn-primary btn-large">
+                  <i class="fas fa-play"></i> Mulai Petualangan
+                </button>
+              </div>
+            </div>
+
+            <!-- Scenario Screen -->
+            <div id="scenario-content" class="content-section">
+              <div class="scenario-card">
+                <div class="scenario-header">
+                  <h3 id="scenarioTitle">Hutan Kabut</h3>
+                  <span class="scenario-position"
+                    >Pos <span id="scenarioPosition">1</span>/7</span
+                  >
+                </div>
+                <div class="scenario-text" id="scenarioText">
+                  Loading scenario...
+                </div>
+                <button id="startDecisionBtn" class="btn btn-primary">
+                  <i class="fas fa-brain"></i> Mulai Diskusi
+                </button>
+              </div>
+            </div>
+
+            <!-- Decision Screen -->
+            <div id="decision-content" class="content-section">
+              <div class="decision-card">
+                <div class="decision-header">
+                  <h3>Keputusan Tim Anda</h3>
+                  <div class="time-limit">
+                    <i class="fas fa-clock"></i>
+                    <span id="timeRemaining">15:00</span>
+                  </div>
+                </div>
+                <form id="decisionForm">
+                  <div class="form-group">
+                    <label for="decision">Keputusan yang Akan Diambil:</label>
+                    <textarea
+                      id="decision"
+                      name="decision"
+                      rows="4"
+                      placeholder="Tuliskan keputusan tim Anda dengan jelas dan spesifik..."
+                      required
+                    ></textarea>
+                    <div class="char-count">
+                      <span id="decisionCount">0</span>/1000 karakter
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="reasoning">Argumentasi/Rasional:</label>
+                    <textarea
+                      id="reasoning"
+                      name="reasoning"
+                      rows="6"
+                      placeholder="Jelaskan mengapa tim Anda memilih keputusan tersebut. Bagaimana tim menganalisis situasi? Apa pertimbangan yang mendasari keputusan ini?"
+                      required
+                    ></textarea>
+                    <div class="char-count">
+                      <span id="reasoningCount">0</span>/2000 karakter
+                    </div>
+                  </div>
+                  <div class="decision-actions">
+                    <button
+                      type="button"
+                      id="backToScenarioBtn"
+                      class="btn btn-secondary"
+                    >
+                      <i class="fas fa-arrow-left"></i> Kembali
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                      <i class="fas fa-paper-plane"></i> Kirim Keputusan
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <!-- Results Screen -->
+            <div id="results-content" class="content-section">
+              <div class="results-card">
+                <div class="results-header">
+                  <h3>Hasil Keputusan</h3>
+                  <div class="score-display">
+                    <span class="score-label">Skor:</span>
+                    <span id="scenarioScore" class="score-value">0</span>
+                    <span class="score-max">/15</span>
+                  </div>
+                </div>
+                <div class="results-content">
+                  <div class="team-answer">
+                    <h4>Keputusan Tim Anda:</h4>
+                    <div id="teamDecision" class="answer-text"></div>
+                    <h4>Argumentasi Tim:</h4>
+                    <div id="teamReasoning" class="answer-text"></div>
+                  </div>
+                  <div class="standard-answer">
+                    <h4>Jawaban Standar:</h4>
+                    <div id="standardDecision" class="answer-text"></div>
+                    <h4>Penjelasan:</h4>
+                    <div id="standardReasoning" class="answer-text"></div>
+                  </div>
+                </div>
+                <div class="results-actions">
+                  <button id="nextScenarioBtn" class="btn btn-primary">
+                    <i class="fas fa-arrow-right"></i> Lanjut ke Pos Berikutnya
+                  </button>
+                  <button id="viewLeaderboardBtn" class="btn btn-secondary">
+                    <i class="fas fa-trophy"></i> Lihat Peringkat
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Game Complete Screen -->
+            <div id="complete-content" class="content-section">
+              <div class="complete-card">
+                <div class="complete-icon">🏆</div>
+                <h3>Selamat! Petualangan Selesai!</h3>
+                <p>
+                  Tim Anda telah berhasil menyelesaikan semua tantangan di
+                  Petualangan Puncak TUNA.
+                </p>
+                <div class="final-stats">
+                  <div class="stat-item">
+                    <span class="stat-label">Total Skor:</span>
+                    <span id="finalScore" class="stat-value">0</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Posisi Akhir:</span>
+                    <span id="finalRank" class="stat-value">-</span>
+                  </div>
+                </div>
+                <div class="complete-actions">
+                  <button id="viewFinalLeaderboardBtn" class="btn btn-primary">
+                    <i class="fas fa-trophy"></i> Lihat Peringkat Akhir
+                  </button>
+                  <button id="playAgainBtn" class="btn btn-secondary">
+                    <i class="fas fa-redo"></i> Main Lagi
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Leaderboard Screen -->
+            <div id="leaderboard-content" class="content-section">
+              <div class="leaderboard-card">
+                <div class="leaderboard-header">
+                  <h3><i class="fas fa-trophy"></i> Peringkat Tim</h3>
+                  <button id="closeLeaderboardBtn" class="btn btn-outline">
+                    <i class="fas fa-times"></i> Tutup
+                  </button>
+                </div>
+                <div id="leaderboardList" class="leaderboard-list">
+                  <!-- Leaderboard items will be populated here -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notification -->
+      <div id="notification" class="notification">
+        <div class="notification-content">
+          <i class="notification-icon"></i>
+          <span class="notification-message"></span>
+        </div>
+      </div>
+
+      <!-- Dark Mode Toggle -->
+      <div class="dark-mode-toggle" id="darkModeToggle">
+        <button class="toggle-btn" id="darkModeBtn" title="Toggle Dark Mode">
+          <i class="fas fa-moon" id="darkModeIcon"></i>
+        </button>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
