@@ -18,6 +18,50 @@ const gameRateLimit = rateLimit(createRateLimit(60 * 1000, 30)); // 30 requests 
 // Apply authentication to all game routes
 router.use(authenticateToken);
 
+// Start game - initialize or reset game state
+router.post("/start", gameRateLimit, async (req, res) => {
+  try {
+    const team = req.team;
+
+    // Check if game is already in progress
+    if (team.current_position > 1) {
+      return res.status(409).json({
+        success: false,
+        message: "Game already in progress. Use /status to get current state.",
+      });
+    }
+
+    // Get first scenario
+    const scenario = await executeQuery(
+      "SELECT * FROM game_scenarios WHERE position = 1"
+    );
+
+    if (!scenario.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Game scenarios not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Game started successfully",
+      scenario: {
+        position: scenario[0].position,
+        title: scenario[0].title,
+        scenarioText: scenario[0].scenario_text,
+      },
+      timeLimit: 900, // 15 minutes
+    });
+  } catch (error) {
+    console.error("Start game error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
 // Get current game status
 router.get("/status", gameRateLimit, async (req, res) => {
   try {
@@ -237,6 +281,160 @@ router.post(
     }
   }
 );
+
+// Submit decision (without position parameter - for current scenario)
+router.post("/submit-decision", gameRateLimit, async (req, res) => {
+  try {
+    const team = req.team;
+    const { position, decision, argumentation } = req.body;
+
+    if (!position || !decision || !argumentation) {
+      return res.status(400).json({
+        success: false,
+        message: "Position, decision, and argumentation are required",
+      });
+    }
+
+    // Check if team has access to this position
+    if (team.current_position < position) {
+      return res.status(403).json({
+        success: false,
+        message: `You must complete position ${position - 1} first`,
+      });
+    }
+
+    // Check if already completed
+    const existingDecision = await executeQuery(
+      "SELECT id FROM team_decisions WHERE team_id = ? AND position = ?",
+      [team.id, position]
+    );
+
+    if (existingDecision.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "This scenario has already been completed",
+      });
+    }
+
+    // Get standard answer for scoring
+    const scenario = await executeQuery(
+      "SELECT standard_answer, standard_reasoning, max_score FROM game_scenarios WHERE position = ?",
+      [position]
+    );
+
+    if (!scenario.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Scenario not found",
+      });
+    }
+
+    // Calculate score based on similarity to standard answer
+    const score = calculateScore(
+      decision,
+      argumentation,
+      scenario[0].standard_answer,
+      scenario[0].standard_reasoning
+    );
+
+    // Start transaction
+    const connection = await require("../config/database").getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // Save decision
+      await connection.execute(
+        "INSERT INTO team_decisions (team_id, position, decision, reasoning, score) VALUES (?, ?, ?, ?, ?)",
+        [team.id, position, decision, argumentation, score]
+      );
+
+      // Update team position and total score
+      const newPosition = position + 1;
+      const newTotalScore = team.total_score + score;
+
+      await connection.execute(
+        "UPDATE teams SET current_position = ?, total_score = ? WHERE id = ?",
+        [newPosition, newTotalScore, team.id]
+      );
+
+      await connection.commit();
+
+      // Get scenario data for result
+      const scenarioData = await executeQuery(
+        "SELECT standard_answer, standard_reasoning FROM game_scenarios WHERE position = ?",
+        [position]
+      );
+
+      res.json({
+        success: true,
+        message: "Decision submitted successfully",
+        team: {
+          id: team.id,
+          name: team.name,
+          current_position: newPosition,
+          total_score: newTotalScore,
+        },
+        result: {
+          position: position,
+          score: score,
+          teamDecision: decision,
+          teamArgumentation: argumentation,
+          standardAnswer: scenarioData.length > 0 ? scenarioData[0].standard_answer : "Jawaban standar tidak tersedia",
+          standardArgumentation: scenarioData.length > 0 ? scenarioData[0].standard_reasoning : "Penjelasan tidak tersedia",
+        },
+      });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error("Submit decision error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Get next scenario
+router.post("/next-scenario", gameRateLimit, async (req, res) => {
+  try {
+    const team = req.team;
+
+    // Get next scenario
+    const nextScenario = await executeQuery(
+      "SELECT * FROM game_scenarios WHERE position = ?",
+      [team.current_position]
+    );
+
+    if (nextScenario.length > 0) {
+      res.json({
+        success: true,
+        scenario: {
+          position: nextScenario[0].position,
+          title: nextScenario[0].title,
+          scenarioText: nextScenario[0].scenario_text,
+        },
+        timeLimit: 900, // 15 minutes
+      });
+    } else {
+      // Game finished
+      res.json({
+        success: true,
+        scenario: null,
+        message: "Game completed!",
+      });
+    }
+  } catch (error) {
+    console.error("Get next scenario error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
 
 // Get leaderboard
 router.get("/leaderboard", gameRateLimit, async (req, res) => {

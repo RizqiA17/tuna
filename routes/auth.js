@@ -75,8 +75,10 @@ router.post(
           data: {
             teamId,
             teamName,
+            currentPosition: 1,
+            totalScore: 0,
             token,
-            players: players.length,
+            players,
           },
         });
       } catch (error) {
