@@ -17,6 +17,7 @@ class AdminPanel {
         // Initialize dark mode
         this.initDarkMode();
         
+        this.checkRequiredElements();
         this.setupEventListeners();
         
         // Check if user is already authenticated
@@ -33,6 +34,35 @@ class AdminPanel {
             this.showLoginScreen();
         }
     }
+    
+    checkRequiredElements() {
+        const requiredElements = [
+            'adminLoginForm',
+            'refreshDataBtn', 
+            'exportDataBtn',
+            'logoutBtn',
+            'darkModeBtn'
+        ];
+        
+        requiredElements.forEach(id => {
+            const element = document.getElementById(id);
+            if (!element) {
+                console.warn(`⚠️ Required element with id '${id}' not found`);
+            }
+        });
+        
+        // Check navigation buttons (analytics button is hidden)
+        const navButtons = document.querySelectorAll('.nav-btn');
+        if (navButtons.length === 0) {
+            console.warn('⚠️ No navigation buttons found');
+        }
+        
+        // Check sections (analytics section is hidden)
+        const sections = document.querySelectorAll('.admin-section');
+        if (sections.length === 0) {
+            console.warn('⚠️ No admin sections found');
+        }
+    }
 
     setupEventListeners() {
         // Admin login form
@@ -45,7 +75,9 @@ class AdminPanel {
         document.querySelectorAll(".nav-btn").forEach(btn => {
             btn.addEventListener("click", (e) => {
                 const section = e.target.dataset.section;
-                this.showSection(section);
+                if (section) {
+                    this.showSection(section);
+                }
             });
         });
 
@@ -185,17 +217,26 @@ class AdminPanel {
         document.querySelectorAll(".nav-btn").forEach(btn => {
             btn.classList.remove("active");
         });
-        document.querySelector(`[data-section="${sectionName}"]`).classList.add("active");
+        
+        const navBtn = document.querySelector(`[data-section="${sectionName}"]`);
+        if (navBtn) {
+            navBtn.classList.add("active");
+        }
 
         // Update content
         document.querySelectorAll(".admin-section").forEach(section => {
             section.classList.remove("active");
         });
-        document.getElementById(`${sectionName}-section`).classList.add("active");
+        
+        const section = document.getElementById(`${sectionName}-section`);
+        if (section) {
+            section.classList.add("active");
+        }
 
         this.currentSection = sectionName;
 
         // Load section-specific data
+        // Analytics section is hidden - no need to load
         if (sectionName === "analytics") {
             this.loadAnalytics();
         }
@@ -524,6 +565,7 @@ class AdminPanel {
     }
 
     loadAnalytics() {
+        // Analytics section is hidden - this method is kept for compatibility
         // Placeholder for analytics charts
         // In a real implementation, you would use a charting library like Chart.js
         console.log("Loading analytics...");
