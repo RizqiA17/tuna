@@ -644,17 +644,30 @@ class TunaAdventureGame {
     const currentTheme = document.documentElement.getAttribute("data-theme");
     const newTheme = currentTheme === "dark" ? "light" : "dark";
 
+    // Apply theme with smooth transition
     document.documentElement.setAttribute("data-theme", newTheme);
     localStorage.setItem("tuna_theme", newTheme);
 
-    // Update icon
+    // Update icon with animation
     const icon = document.getElementById("darkModeIcon");
-    icon.className = newTheme === "dark" ? "fas fa-sun" : "fas fa-moon";
+    const toggleBtn = document.getElementById("darkModeBtn");
+    
+    // Add rotation animation
+    toggleBtn.style.transform = "rotate(180deg)";
+    setTimeout(() => {
+      icon.className = newTheme === "dark" ? "fas fa-sun" : "fas fa-moon";
+      toggleBtn.style.transform = "rotate(0deg)";
+    }, 150);
 
+    // Show notification with theme-specific styling
+    const themeName = newTheme === "dark" ? "Dark" : "Light";
     this.showNotification(
-      `Switched to ${newTheme === "dark" ? "Dark" : "Light"} Mode`,
+      `Switched to ${themeName} Mode`,
       "info"
     );
+
+    // Update toggle button title
+    toggleBtn.title = `Switch to ${newTheme === "dark" ? "Light" : "Dark"} Mode`;
   }
 
   initDarkMode() {
@@ -662,7 +675,10 @@ class TunaAdventureGame {
     document.documentElement.setAttribute("data-theme", savedTheme);
 
     const icon = document.getElementById("darkModeIcon");
+    const toggleBtn = document.getElementById("darkModeBtn");
+    
     icon.className = savedTheme === "dark" ? "fas fa-sun" : "fas fa-moon";
+    toggleBtn.title = `Switch to ${savedTheme === "dark" ? "Light" : "Dark"} Mode`;
   }
 
   // Game scenarios data (sync with server)
