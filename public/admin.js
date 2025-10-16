@@ -954,7 +954,7 @@ class AdminPanel {
     }
 
     showLoginScreen() {
-        document.getElementById("admin-login-screen").style.display = "block";
+        document.getElementById("admin-login-screen").style.display = "flex";
         document.getElementById("admin-panel-content").style.display = "none";
     }
 

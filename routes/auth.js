@@ -12,7 +12,7 @@ const {
 const router = express.Router();
 
 // Rate limiting
-const authRateLimit = rateLimit(createRateLimit(15 * 60 * 1000, 10)); // 10 requests per 15 minutes
+const authRateLimit = rateLimit(createRateLimit(15 * 60 * 1000, 50)); // 50 requests per 15 minutes
 const registrationRateLimit = rateLimit(createRateLimit(60 * 60 * 1000, 5)); // 5 registrations per hour
 
 // Team registration

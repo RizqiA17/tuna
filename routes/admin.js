@@ -8,7 +8,7 @@ const router = express.Router();
 // Rate limiting for admin routes
 const adminRateLimit = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 30, // 30 requests per minute
+  max: 60, // 60 requests per minute
   message: {
     success: false,
     message: "Too many admin requests, please try again later.",

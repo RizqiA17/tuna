@@ -1,5 +1,17 @@
 /* Admin Panel Styles */
 
+/* Reset margins and ensure full height */
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+* {
+    box-sizing: border-box;
+}
+
 /* CSS Custom Properties for Admin Panel */
 :root {
   --admin-bg-primary: #ffffff;
@@ -37,12 +49,15 @@
 /* Admin Login Screen */
 .admin-login-screen {
     min-height: 100vh;
+    height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--admin-header-bg);
     padding: 2rem;
     transition: background 0.3s ease;
+    position: relative;
+    box-sizing: border-box;
 }
 
 .admin-login-container {
@@ -55,6 +70,8 @@
     text-align: center;
     border: 1px solid var(--admin-border-color);
     transition: all 0.3s ease;
+    margin: 0 auto;
+    position: relative;
 }
 
 .admin-login-header h1 {

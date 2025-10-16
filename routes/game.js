@@ -13,7 +13,7 @@ const {
 const router = express.Router();
 
 // Rate limiting
-const gameRateLimit = rateLimit(createRateLimit(60 * 1000, 30)); // 30 requests per minute
+const gameRateLimit = rateLimit(createRateLimit(60 * 1000, 60)); // 60 requests per minute
 
 // Apply authentication to all game routes
 router.use(authenticateToken);
