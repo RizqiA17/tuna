@@ -32,17 +32,24 @@ class TunaAdventureGame {
       playerCount: this.playerCount
     });
 
-    // Initialize dark mode
-    this.initDarkMode();
+    try {
+      // Initialize dark mode
+      this.initDarkMode();
 
-    // Initialize WebSocket connection
-    this.initWebSocket();
+      // Initialize WebSocket connection (non-blocking)
+      this.initWebSocket();
 
-    // Show loading screen
-    this.showScreen("loading-screen");
+      // Show loading screen
+      this.showScreen("loading-screen");
 
-    // Simulate loading
-    await this.delay(3000);
+      // Simulate loading
+      await this.delay(3000);
+
+      // Add a fallback timeout to ensure we don't get stuck on loading screen
+      const fallbackTimeout = setTimeout(() => {
+        this.logger.warn("Fallback timeout reached, forcing transition to login screen");
+        this.showScreen("login-screen");
+      }, 10000); // 10 second fallback
 
     // Check if user is already logged in
     if (this.token) {
@@ -53,6 +60,7 @@ class TunaAdventureGame {
         // Try to restore game state first
         const gameStateRestored = this.restoreGameState();
         
+        clearTimeout(fallbackTimeout);
         this.showScreen("game-screen");
         this.updateGameUI();
         
@@ -75,6 +83,7 @@ class TunaAdventureGame {
         this.token = null;
         localStorage.removeItem("tuna_token");
         this.clearTimerState();
+        clearTimeout(fallbackTimeout);
         this.showScreen("login-screen");
         this.showNotification(
           "Sesi Anda telah berakhir. Silakan login kembali.",
@@ -83,10 +92,17 @@ class TunaAdventureGame {
       }
     } else {
       this.logger.info("No token found, showing login screen");
+      clearTimeout(fallbackTimeout);
       this.showScreen("login-screen");
     }
 
     this.setupEventListeners();
+    } catch (error) {
+      this.logger.error("Initialization failed", { error: error.message, stack: error.stack });
+      // Fallback: show login screen
+      this.showScreen("login-screen");
+      this.showNotification("Terjadi kesalahan saat memuat aplikasi. Silakan refresh halaman.", "error");
+    }
   }
 
   setupEventListeners() {
@@ -186,18 +202,78 @@ class TunaAdventureGame {
 
   // Screen Management
   showScreen(screenId) {
+    console.log(`🎯 Switching to screen: ${screenId}`);
+    
+    // Remove active class from all screens and reset display style
     document.querySelectorAll(".screen").forEach((screen) => {
       screen.classList.remove("active");
+      screen.style.display = "none";
+      console.log(`  - Removed active from: ${screen.id}`);
     });
-    document.getElementById(screenId).classList.add("active");
+    
+    // Add active class to target screen
+    const targetScreen = document.getElementById(screenId);
+    if (targetScreen) {
+      targetScreen.classList.add("active");
+      targetScreen.style.display = "flex";
+      console.log(`  - Added active to: ${screenId}`);
+      
+      // Force a reflow to ensure the display change takes effect
+      targetScreen.offsetHeight;
+    } else {
+      console.error(`  - Target screen not found: ${screenId}`);
+    }
 
     // If showing game screen, make sure welcome content is active by default
     if (screenId === "game-screen") {
       document.querySelectorAll(".content-section").forEach((section) => {
         section.classList.remove("active");
       });
-      document.getElementById("welcome-content").classList.add("active");
+      const welcomeContent = document.getElementById("welcome-content");
+      if (welcomeContent) {
+        welcomeContent.classList.add("active");
+        console.log(`  - Set welcome-content as active for game screen`);
+      }
     }
+  }
+
+  // Explicitly hide login screen
+  hideLoginScreen() {
+    const loginScreen = document.getElementById("login-screen");
+    if (loginScreen) {
+      loginScreen.classList.remove("active");
+      loginScreen.style.display = "none";
+      console.log("🎯 Login screen explicitly hidden");
+    }
+  }
+
+  // Explicitly show login screen
+  showLoginScreen() {
+    console.log("🎯 Showing login screen");
+    
+    // Use requestAnimationFrame to ensure DOM updates are processed
+    requestAnimationFrame(() => {
+      try {
+        // Remove active class from all screens and reset display style
+        document.querySelectorAll(".screen").forEach((screen) => {
+          screen.classList.remove("active");
+          screen.style.display = "none";
+          console.log(`  - Removed active from: ${screen.id}`);
+        });
+        
+        // Add active class to login screen
+        const loginScreen = document.getElementById("login-screen");
+        if (loginScreen) {
+          loginScreen.classList.add("active");
+          loginScreen.style.display = "flex";
+          console.log("🎯 Login screen explicitly shown");
+        } else {
+          console.error("Login screen not found");
+        }
+      } catch (error) {
+        console.error("Error showing login screen:", error);
+      }
+    });
   }
 
   switchTab(tab) {
@@ -309,6 +385,8 @@ class TunaAdventureGame {
         }
       }
       
+      // Explicitly hide login screen and show game screen
+      this.hideLoginScreen();
       this.showScreen("game-screen");
       this.updateGameUI();
       this.showNotification(
@@ -377,6 +455,10 @@ class TunaAdventureGame {
         }
       }
       
+    console.log("🎯 Registration successful, switching to game screen");
+    
+    // Explicitly hide login screen and show game screen
+    this.hideLoginScreen();
     this.showScreen("game-screen");
     this.updateGameUI();
     this.updateGameStateUI();
@@ -430,11 +512,20 @@ class TunaAdventureGame {
 
   // WebSocket Methods
   initWebSocket() {
-    this.socket = io();
-    this.logger.info("WebSocket connection initialized");
-    
-    this.socket.on('connect', () => {
-      this.logger.websocket('connect', null, 'IN');
+    try {
+      this.socket = io();
+      this.logger.info("WebSocket connection initialized");
+      
+      // Add timeout for WebSocket connection
+      const connectionTimeout = setTimeout(() => {
+        if (!this.socket.connected) {
+          this.logger.warn("WebSocket connection timeout, continuing without WebSocket");
+        }
+      }, 5000); // 5 second timeout
+      
+      this.socket.on('connect', () => {
+        clearTimeout(connectionTimeout);
+        this.logger.websocket('connect', null, 'IN');
       
       // Join as team if logged in (only if not already joined)
       const teamId = this.teamData?.teamId || this.teamData?.id;
@@ -475,17 +566,30 @@ class TunaAdventureGame {
     // Reconnect team if socket reconnects
     this.socket.on('reconnect', () => {
       console.log('🔌 Reconnected to server');
+      // Reset join flag to allow re-joining after reconnection
+      this.hasJoinedAsTeam = false;
+      
       if (this.teamData) {
         this.socket.emit('team-join', {
           teamId: this.teamData.id,
           teamName: this.teamData.teamName
         });
+        this.hasJoinedAsTeam = true;
       }
     });
 
     this.socket.on('disconnect', () => {
       console.log('🔌 Disconnected from server');
     });
+    
+    this.socket.on('connect_error', (error) => {
+      this.logger.error("WebSocket connection error", { error: error.message });
+      clearTimeout(connectionTimeout);
+    });
+    
+    } catch (error) {
+      this.logger.error("Failed to initialize WebSocket", { error: error.message });
+    }
 
     // Listen for admin commands
     this.socket.on('game-start-command', () => {
@@ -510,6 +614,24 @@ class TunaAdventureGame {
         "warning"
       );
       this.logout();
+    });
+
+    // Listen for game state updates from server
+    this.socket.on('game-state-update', (data) => {
+      console.log('🔄 Game state update from server:', data);
+      const oldGameState = this.gameState;
+      this.gameState = data.gameState || 'waiting';
+      this.currentScenarioPosition = data.currentStep || 1;
+      
+      // Update UI based on server state
+      this.updateGameStateUI();
+      this.showAppropriateContent();
+      
+      // Show notification if game state was reset (server restart)
+      if (oldGameState !== this.gameState && this.gameState === 'waiting') {
+        this.showNotification('Server restarted - Game state reset to waiting', 'info');
+        this.clearGameState();
+      }
     });
   }
 
@@ -951,41 +1073,10 @@ class TunaAdventureGame {
       if (savedState) {
         const timerState = JSON.parse(savedState);
         
-        if (timerState.isActive && timerState.startTime) {
-          const now = Date.now();
-          const elapsed = Math.floor((now - timerState.startTime) / 1000);
-          const remaining = timerState.duration - elapsed;
-          
-          if (remaining > 0) {
-            this.timeLeft = remaining;
-            this.timerStartTime = timerState.startTime;
-            this.timerDuration = timerState.duration;
-            this.isTimerActive = true;
-            this.gameState = timerState.gameState || 'running';
-            this.currentScreen = timerState.currentScreen || 'decision-content';
-            
-            // Restart the timer
-            this.timer = setInterval(() => {
-              this.timeLeft--;
-              this.updateTimerDisplay();
-              this.saveTimerState();
-
-              if (this.timeLeft <= 0) {
-                this.stopTimer();
-                this.showNotification(
-                  "Waktu habis! Kirim keputusan sekarang.",
-                  "warning"
-                );
-              }
-            }, 1000);
-            
-            this.updateTimerDisplay();
-            return true;
-          } else {
-            // Timer has expired, clear the state
-            this.clearTimerState();
-          }
-        }
+        // Don't restore timer state - let server provide current state
+        // Timer state should only be restored if server confirms game is running
+        this.logger.info("Timer state found in localStorage but not restoring - waiting for server confirmation");
+        this.clearTimerState();
       }
     } catch (error) {
       console.error("Error restoring timer state:", error);
@@ -996,6 +1087,16 @@ class TunaAdventureGame {
 
   clearTimerState() {
     localStorage.removeItem("tuna_timer_state");
+  }
+
+  clearGameState() {
+    localStorage.removeItem("tuna_game_state");
+    this.gameState = 'waiting';
+    this.isGameStarted = false;
+    this.isWaitingForAdmin = true;
+    this.currentScenarioPosition = 1;
+    this.currentScreen = 'welcome-content';
+    this.currentScenario = null;
   }
 
   saveGameState() {
@@ -1015,13 +1116,14 @@ class TunaAdventureGame {
       const savedState = localStorage.getItem("tuna_game_state");
       if (savedState) {
         const gameState = JSON.parse(savedState);
-        this.teamData = gameState.teamData;
-        this.currentScenario = gameState.currentScenario;
-        this.gameState = gameState.gameState || 'waiting';
-        this.currentScreen = gameState.currentScreen || 'welcome-content';
-        this.isGameStarted = gameState.isGameStarted || false;
-        this.currentScenarioPosition = gameState.currentScenarioPosition || 1;
-        return true;
+        
+        // Don't restore game state from localStorage - let server provide current state
+        // Only restore basic team data, not game progress
+        this.logger.info("Game state found in localStorage but not restoring - waiting for server confirmation");
+        
+        // Clear game state to prevent inconsistencies
+        this.clearGameState();
+        return false;
       }
     } catch (error) {
       console.error("Error restoring game state:", error);

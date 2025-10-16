@@ -82,6 +82,10 @@ const mockDecisions = new Map();
 const connectedTeams = new Map(); // teamId -> socketId
 const connectedAdmins = new Set(); // socketId
 
+// Game state for demo
+let gameState = 'waiting'; // waiting, running, ended
+let currentStep = 1;
+
 io.on('connection', (socket) => {
   serverLogger.websocket('connection', { socketId: socket.id }, socket.id, 'IN');
 
@@ -145,6 +149,13 @@ io.on('connection', (socket) => {
       adminCount: connectedAdmins.size 
     });
     io.to('admin-room').emit('connected-teams', teams);
+    
+    // Send current game state to team
+    socket.emit('game-state-update', {
+      gameState,
+      currentStep,
+      connectedTeamsCount: connectedTeams.size
+    });
   });
 
   // Admin connection
@@ -165,10 +176,19 @@ io.on('connection', (socket) => {
       adminSocketId: socket.id 
     });
     socket.emit('connected-teams', teams);
+    
+    // Send current game state to admin
+    socket.emit('game-state-update', {
+      gameState,
+      currentStep,
+      connectedTeamsCount: connectedTeams.size
+    });
   });
 
   // Game control events
   socket.on('start-game-all', async () => {
+    gameState = 'running';
+    currentStep = 1;
     serverLogger.gameState('started', { 
       adminSocketId: socket.id,
       connectedTeamsCount: connectedTeams.size 
@@ -178,6 +198,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('next-scenario-all', () => {
+    currentStep++;
     serverLogger.gameState('scenario-advanced', { 
       adminSocketId: socket.id,
       connectedTeamsCount: connectedTeams.size 
@@ -187,6 +208,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('end-game-all', () => {
+    gameState = 'ended';
     serverLogger.gameState('ended', { 
       adminSocketId: socket.id,
       connectedTeamsCount: connectedTeams.size 
@@ -855,6 +877,9 @@ app.get("/api/admin/stats", authenticateAdmin, (req, res) => {
       activeTeams,
       completedTeams,
       averageScore,
+      gameState,
+      currentStep,
+      connectedTeamsCount: connectedTeams.size,
       scenarioStats: gameScenarios.map(scenario => ({
         position: scenario.position,
         title: scenario.title,

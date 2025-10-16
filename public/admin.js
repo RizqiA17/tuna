@@ -217,11 +217,19 @@ class AdminPanel {
             this.statsData = statsResponse.data;
             this.leaderboardData = leaderboardResponse.data;
 
+            // Update game state from server stats
+            if (this.statsData.gameState) {
+                this.gameState = this.statsData.gameState;
+                this.currentStep = this.statsData.currentStep || 1;
+            }
+
             // Update UI
             this.updateOverview();
             this.updateTeamsTable();
             this.updateLeaderboard();
             this.updateScenarioStats();
+            this.updateGameStatus(this.getGameStatusText(this.gameState));
+            this.updateGameControlButtons();
 
             this.showNotification("Data refreshed successfully!", "success");
         } catch (error) {
@@ -239,6 +247,7 @@ class AdminPanel {
         this.socket.on('connect', () => {
             console.log('🔌 Admin connected to server');
             this.socket.emit('admin-join');
+            this.showNotification('Connected to server', 'success');
         });
 
         this.socket.on('disconnect', () => {
@@ -337,6 +346,21 @@ class AdminPanel {
             this.updateGameControlButtons();
             this.showNotification('Game ended for all teams', 'warning');
         });
+
+        // Listen for game state updates from server
+        this.socket.on('game-state-update', (data) => {
+            console.log('🔄 Game state update from server:', data);
+            const oldGameState = this.gameState;
+            this.gameState = data.gameState || 'waiting';
+            this.currentStep = data.currentStep || 1;
+            this.updateGameStatus(this.getGameStatusText(this.gameState));
+            this.updateGameControlButtons();
+            
+            // Show notification if game state was reset (server restart)
+            if (oldGameState !== this.gameState && this.gameState === 'waiting') {
+                this.showNotification('Server restarted - Game state reset to waiting', 'info');
+            }
+        });
     }
 
     // Game Control Methods
@@ -385,6 +409,15 @@ class AdminPanel {
             statusElement.textContent = status;
             statusElement.className = `status-value ${status.toLowerCase().replace(' ', '-')}`;
         }
+    }
+
+    getGameStatusText(gameState) {
+        const statusMap = {
+            'waiting': 'Waiting',
+            'running': 'Running',
+            'ended': 'Ended'
+        };
+        return statusMap[gameState] || 'Unknown';
     }
 
     updateConnectedTeamsCount() {
@@ -1047,9 +1080,11 @@ class AdminPanel {
             if (savedState) {
                 const adminState = JSON.parse(savedState);
                 this.currentSection = adminState.currentSection || "overview";
-                this.gameState = adminState.gameState || 'waiting';
-                this.currentStep = adminState.currentStep || 1;
-                this.teamsCompletedCurrentStep = new Set(adminState.teamsCompletedCurrentStep || []);
+                // Don't restore game state from localStorage - let server provide the current state
+                // The server will send game-state-update event with current state
+                this.gameState = 'waiting'; // Default, will be updated by server
+                this.currentStep = 1; // Default, will be updated by server
+                this.teamsCompletedCurrentStep = new Set(); // Always start fresh
                 return true;
             }
         } catch (error) {

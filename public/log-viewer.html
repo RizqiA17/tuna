@@ -288,7 +288,8 @@
             <input type="text" id="searchTerm" placeholder="Search logs...">
         </div>
 
-        <button onclick="clearLogs()">Clear Logs</button>
+        <button onclick="clearLogs()">Clear All Logs</button>
+        <button onclick="clearOldLogs()">Clear Old Logs</button>
         <button onclick="exportLogs()">Export Logs</button>
         <button onclick="refreshLogs()">Refresh</button>
     </div>
@@ -349,7 +350,22 @@
                 const teamLogs = JSON.parse(localStorage.getItem('tuna_logs_TEAM') || '[]');
                 const adminLogs = JSON.parse(localStorage.getItem('tuna_logs_ADMIN') || '[]');
                 
-                this.logs = [...teamLogs, ...adminLogs].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                // Filter out logs that might be from previous server sessions
+                // Only show logs from current session (last 24 hours)
+                const now = Date.now();
+                const oneDayAgo = now - (24 * 60 * 60 * 1000);
+                
+                const recentTeamLogs = teamLogs.filter(log => {
+                    const logTime = new Date(log.timestamp).getTime();
+                    return logTime > oneDayAgo;
+                });
+                
+                const recentAdminLogs = adminLogs.filter(log => {
+                    const logTime = new Date(log.timestamp).getTime();
+                    return logTime > oneDayAgo;
+                });
+                
+                this.logs = [...recentTeamLogs, ...recentAdminLogs].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
                 this.filterLogs();
                 this.updateStats();
             }
@@ -415,6 +431,32 @@
                 localStorage.removeItem('tuna_logs_TEAM');
                 localStorage.removeItem('tuna_logs_ADMIN');
                 logViewer.loadLogs();
+            }
+        }
+
+        function clearOldLogs() {
+            if (confirm('Clear logs older than 24 hours?')) {
+                const now = Date.now();
+                const oneDayAgo = now - (24 * 60 * 60 * 1000);
+                
+                // Clear old team logs
+                const teamLogs = JSON.parse(localStorage.getItem('tuna_logs_TEAM') || '[]');
+                const recentTeamLogs = teamLogs.filter(log => {
+                    const logTime = new Date(log.timestamp).getTime();
+                    return logTime > oneDayAgo;
+                });
+                localStorage.setItem('tuna_logs_TEAM', JSON.stringify(recentTeamLogs));
+                
+                // Clear old admin logs
+                const adminLogs = JSON.parse(localStorage.getItem('tuna_logs_ADMIN') || '[]');
+                const recentAdminLogs = adminLogs.filter(log => {
+                    const logTime = new Date(log.timestamp).getTime();
+                    return logTime > oneDayAgo;
+                });
+                localStorage.setItem('tuna_logs_ADMIN', JSON.stringify(recentAdminLogs));
+                
+                logViewer.loadLogs();
+                alert('Old logs cleared successfully!');
             }
         }
 
