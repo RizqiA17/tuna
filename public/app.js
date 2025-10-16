@@ -8,15 +8,29 @@ class TunaAdventureGame {
     this.timeLeft = 900; // 15 minutes in seconds
     this.timer = null;
     this.playerCount = 1;
+    this.socket = null;
+    this.isGameStarted = false;
+    this.isWaitingForAdmin = false;
+    this.gameState = 'waiting'; // waiting, running, ended
+    this.currentScenarioPosition = 1;
+    this.hasJoinedAsTeam = false;
+    this.logger = window.TeamLogger || new Logger('TEAM');
 
     this.init();
   }
 
   async init() {
-    console.log("🎮 Initializing Tuna Adventure Game...");
+    this.logger.info("Initializing Tuna Adventure Game", { 
+      gameState: this.gameState,
+      hasToken: !!this.token,
+      playerCount: this.playerCount
+    });
 
     // Initialize dark mode
     this.initDarkMode();
+
+    // Initialize WebSocket connection
+    this.initWebSocket();
 
     // Show loading screen
     this.showScreen("loading-screen");
@@ -27,13 +41,13 @@ class TunaAdventureGame {
     // Check if user is already logged in
     if (this.token) {
       try {
-        console.log("🔑 Token found, attempting to load team data...");
+        this.logger.info("Token found, attempting to load team data", { token: this.token.substring(0, 20) + '...' });
         await this.loadTeamData();
         this.showScreen("game-screen");
         this.updateGameUI();
-        console.log("✅ Game screen shown, UI updated.");
+        this.logger.info("Game screen shown, UI updated successfully");
       } catch (error) {
-        console.error("❌ Token invalid or failed to load team data:", error);
+        this.logger.error("Token invalid or failed to load team data", { error: error.message, stack: error.stack });
         this.token = null;
         localStorage.removeItem("tuna_token");
         this.showScreen("login-screen");
@@ -43,7 +57,7 @@ class TunaAdventureGame {
         );
       }
     } else {
-      console.log("🔐 No token found, showing login screen.");
+      this.logger.info("No token found, showing login screen");
       this.showScreen("login-screen");
     }
 
@@ -179,6 +193,16 @@ class TunaAdventureGame {
   // API Methods
   async apiRequest(endpoint, options = {}) {
     const url = `${this.apiBase}${endpoint}`;
+    const startTime = Date.now();
+    const requestId = 'req_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    this.logger.debug("API request started", { 
+      url, 
+      method: options.method || 'GET', 
+      requestId,
+      hasToken: !!this.token
+    });
+
     const config = {
       headers: {
         "Content-Type": "application/json",
@@ -190,14 +214,37 @@ class TunaAdventureGame {
     try {
       const response = await fetch(url, config);
       const data = await response.json();
+      const duration = Date.now() - startTime;
 
       if (!response.ok) {
+        this.logger.error("API request failed", { 
+          url, 
+          status: response.status, 
+          error: data.message,
+          duration,
+          requestId
+        });
         throw new Error(data.message || "Request failed");
       }
 
+      this.logger.network(
+        options.method || 'GET', 
+        url, 
+        options.body ? JSON.parse(options.body) : null, 
+        data, 
+        response.status, 
+        duration
+      );
+
       return data;
     } catch (error) {
-      console.error("API Error:", error);
+      const duration = Date.now() - startTime;
+      this.logger.error("API request failed", { 
+        url, 
+        error: error.message, 
+        duration,
+        requestId
+      });
       throw error;
     }
   }
@@ -220,6 +267,24 @@ class TunaAdventureGame {
       localStorage.setItem("tuna_token", this.token);
 
       this.teamData = response.data;
+      
+      // Join WebSocket as team
+      if (this.socket && this.socket.connected) {
+        const teamId = this.teamData.teamId || this.teamData.id;
+        if (teamId) {
+          this.socket.emit('team-join', {
+            teamId: teamId,
+            teamName: this.teamData.teamName
+          });
+          this.logger.websocket('team-join', {
+            teamId: teamId,
+            teamName: this.teamData.teamName
+          }, 'OUT');
+        } else {
+          this.logger.error("No teamId available in handleLogin", { teamData: this.teamData });
+        }
+      }
+      
       this.showScreen("game-screen");
       this.updateGameUI();
       this.showNotification(
@@ -270,12 +335,31 @@ class TunaAdventureGame {
       localStorage.setItem("tuna_token", this.token);
 
       this.teamData = response.data;
-      this.showScreen("game-screen");
-      this.updateGameUI();
-      this.showNotification(
-        "Tim berhasil didaftarkan! Selamat datang di Petualangan Puncak TUNA!",
-        "success"
-      );
+      
+      // Join WebSocket as team
+      if (this.socket && this.socket.connected) {
+        const teamId = this.teamData.teamId || this.teamData.id;
+        if (teamId) {
+          this.socket.emit('team-join', {
+            teamId: teamId,
+            teamName: this.teamData.teamName
+          });
+          this.logger.websocket('team-join', {
+            teamId: teamId,
+            teamName: this.teamData.teamName
+          }, 'OUT');
+        } else {
+          this.logger.error("No teamId available in handleRegister", { teamData: this.teamData });
+        }
+      }
+      
+    this.showScreen("game-screen");
+    this.updateGameUI();
+    this.updateGameStateUI();
+    this.showNotification(
+      "Tim berhasil didaftarkan! Selamat datang di Petualangan Puncak TUNA!",
+      "success"
+    );
     } catch (error) {
       this.showNotification(error.message, "error");
     }
@@ -284,12 +368,139 @@ class TunaAdventureGame {
   async loadTeamData() {
     const response = await this.apiRequest("/auth/me");
     this.teamData = response.data;
+    
+    // Join WebSocket as team (only if not already joined)
+    if (this.socket && this.socket.connected && !this.hasJoinedAsTeam) {
+      const teamId = this.teamData.teamId || this.teamData.id;
+      
+      if (!teamId) {
+        this.logger.error("No teamId available for team join", { 
+          teamData: this.teamData,
+          teamId: teamId
+        });
+        return;
+      }
+      
+      this.logger.debug("Sending team-join", { 
+        teamId: teamId, 
+        teamName: this.teamData.teamName,
+        teamData: this.teamData
+      });
+      
+      this.socket.emit('team-join', {
+        teamId: teamId,
+        teamName: this.teamData.teamName
+      });
+      this.logger.websocket('team-join', {
+        teamId: teamId,
+        teamName: this.teamData.teamName
+      }, 'OUT');
+      this.hasJoinedAsTeam = true;
+    }
+    
+    // Update game state UI
+    this.updateGameStateUI();
+    
     return response.data;
+  }
+
+  // WebSocket Methods
+  initWebSocket() {
+    this.socket = io();
+    this.logger.info("WebSocket connection initialized");
+    
+    this.socket.on('connect', () => {
+      this.logger.websocket('connect', null, 'IN');
+      
+      // Join as team if logged in (only if not already joined)
+      const teamId = this.teamData?.teamId || this.teamData?.id;
+      if (this.teamData && teamId && this.teamData.teamName && !this.hasJoinedAsTeam) {
+        this.logger.debug("Sending team-join from initWebSocket", { 
+          teamId: teamId, 
+          teamName: this.teamData.teamName,
+          teamData: this.teamData
+        });
+        
+        this.logger.info("Joining as team", { 
+          teamId: teamId, 
+          teamName: this.teamData.teamName 
+        });
+        this.socket.emit('team-join', {
+          teamId: teamId,
+          teamName: this.teamData.teamName
+        });
+        this.logger.websocket('team-join', {
+          teamId: teamId,
+          teamName: this.teamData.teamName
+        }, 'OUT');
+        this.hasJoinedAsTeam = true;
+      } else if (!this.teamData) {
+        this.logger.warn("Team data not ready for WebSocket join", { 
+          hasTeamData: !!this.teamData,
+          teamId: this.teamData?.id,
+          teamName: this.teamData?.teamName
+        });
+      } else if (this.hasJoinedAsTeam) {
+        this.logger.info("Already joined as team, skipping", { 
+          teamId: this.teamData.id, 
+          teamName: this.teamData.teamName 
+        });
+      }
+    });
+
+    // Reconnect team if socket reconnects
+    this.socket.on('reconnect', () => {
+      console.log('🔌 Reconnected to server');
+      if (this.teamData) {
+        this.socket.emit('team-join', {
+          teamId: this.teamData.id,
+          teamName: this.teamData.teamName
+        });
+      }
+    });
+
+    this.socket.on('disconnect', () => {
+      console.log('🔌 Disconnected from server');
+    });
+
+    // Listen for admin commands
+    this.socket.on('game-start-command', () => {
+      console.log('🎮 Received game start command from admin');
+      this.startGameFromAdmin();
+    });
+
+    this.socket.on('next-scenario-command', () => {
+      console.log('➡️ Received next scenario command from admin');
+      this.nextScenarioFromAdmin();
+    });
+
+    this.socket.on('end-game-command', () => {
+      console.log('🏁 Received end game command from admin');
+      this.endGameFromAdmin();
+    });
+
+    this.socket.on('team-kicked', () => {
+      console.log('👢 Team has been kicked by admin');
+      this.showNotification(
+        "Tim Anda telah dikeluarkan dari permainan oleh admin.",
+        "warning"
+      );
+      this.logout();
+    });
   }
 
   // Game Logic
   async startGame() {
     console.log("🚀 Starting game...");
+    
+    if (this.isWaitingForAdmin) {
+      this.showNotification(
+        "Menunggu admin untuk memulai permainan...",
+        "info"
+      );
+      return;
+    }
+
     try {
       const response = await this.apiRequest("/game/start", {
         method: "POST",
@@ -316,6 +527,90 @@ class TunaAdventureGame {
         "Gagal memulai petualangan. Silakan coba lagi.",
         "error"
       );
+    }
+  }
+
+  async startGameFromAdmin() {
+    console.log("🎮 Starting game from admin command...");
+    try {
+      const response = await this.apiRequest("/game/start", {
+        method: "POST",
+      });
+
+      if (response.success) {
+        this.currentScenario = response.scenario;
+        this.timeLeft = response.timeLimit;
+        this.isGameStarted = true;
+        this.isWaitingForAdmin = false;
+        this.gameState = 'running';
+        this.currentScenarioPosition = 1;
+        this.updateScenarioUI();
+        this.updateGameStateUI();
+
+        // Hide welcome content and show scenario content
+        document.getElementById("welcome-content").classList.remove("active");
+        document.getElementById("scenario-content").classList.add("active");
+
+        this.showNotification(
+          "Admin telah memulai permainan! Baca scenario dengan teliti.",
+          "success"
+        );
+        console.log("✅ Game started from admin command");
+      }
+    } catch (error) {
+      console.error("❌ Error starting game from admin:", error);
+      this.showNotification(
+        "Gagal memulai petualangan dari admin.",
+        "error"
+      );
+    }
+  }
+
+  async nextScenarioFromAdmin() {
+    console.log("➡️ Moving to next scenario from admin command...");
+    this.currentScenarioPosition++;
+    this.nextScenario();
+  }
+
+  endGameFromAdmin() {
+    console.log("🏁 Ending game from admin command...");
+    this.isGameStarted = false;
+    this.isWaitingForAdmin = true;
+    this.gameState = 'ended';
+    this.updateGameStateUI();
+    this.showNotification(
+      "Admin telah mengakhiri permainan.",
+      "info"
+    );
+  }
+
+  updateGameStateUI() {
+    // Update start game button visibility
+    const startGameBtn = document.getElementById("startGameBtn");
+    if (startGameBtn) {
+      if (this.gameState === 'waiting') {
+        startGameBtn.style.display = 'block';
+        startGameBtn.textContent = '⏳ Menunggu Admin...';
+        startGameBtn.disabled = true;
+      } else if (this.gameState === 'running') {
+        startGameBtn.style.display = 'none';
+      } else if (this.gameState === 'ended') {
+        startGameBtn.style.display = 'block';
+        startGameBtn.textContent = '🏁 Permainan Selesai';
+        startGameBtn.disabled = true;
+      }
+    }
+
+    // Update next scenario button visibility
+    const nextScenarioBtn = document.getElementById("nextScenarioBtn");
+    if (nextScenarioBtn) {
+      if (this.gameState === 'running' && this.teamData && this.teamData.currentPosition > 7) {
+        nextScenarioBtn.style.display = 'none';
+      } else if (this.gameState === 'running') {
+        nextScenarioBtn.style.display = 'block';
+      } else {
+        nextScenarioBtn.style.display = 'none';
+      }
     }
   }
 
@@ -351,6 +646,26 @@ class TunaAdventureGame {
         this.teamData.totalScore = response.team.total_score;
         this.teamData.currentPosition = response.team.current_position;
 
+        // Send progress update to admin
+        if (this.socket) {
+          const teamId = this.teamData.teamId || this.teamData.id;
+          this.socket.emit('team-progress', {
+            teamId: teamId,
+            currentPosition: this.teamData.currentPosition,
+            totalScore: this.teamData.totalScore,
+            isCompleted: this.teamData.currentPosition > 7
+          });
+
+          this.socket.emit('team-decision', {
+            teamId: teamId,
+            position: this.currentScenario.position,
+            score: response.result.score
+          });
+        }
+
+        // Update game state UI
+        this.updateGameStateUI();
+
         // Show results
         await this.showResults(response.result);
         this.showNotification("Keputusan berhasil dikirim!", "success");
@@ -385,6 +700,7 @@ class TunaAdventureGame {
 
   async nextScenario() {
     this.updateGameUI();
+    this.updateGameStateUI();
 
     if (this.teamData.currentPosition > 7) {
       // Hide results and show complete content

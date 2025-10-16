@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Viewer - Tuna Adventure Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .controls {
+            background: #2d2d2d;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #444;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .control-group label {
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+
+        select, input, button {
+            padding: 0.5rem;
+            border: 1px solid #555;
+            border-radius: 4px;
+            background: #333;
+            color: #fff;
+            font-size: 0.9rem;
+        }
+
+        button {
+            background: #667eea;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #5a6fd8;
+        }
+
+        .stats {
+            background: #2d2d2d;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #444;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #ccc;
+            margin-top: 0.25rem;
+        }
+
+        .log-container {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .log-header {
+            background: #333;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #555;
+            font-weight: bold;
+            display: grid;
+            grid-template-columns: 120px 80px 100px 100px 1fr 100px;
+            gap: 1rem;
+            font-size: 0.8rem;
+            color: #ccc;
+        }
+
+        .log-list {
+            flex: 1;
+            overflow-y: auto;
+            background: #1a1a1a;
+        }
+
+        .log-entry {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #333;
+            display: grid;
+            grid-template-columns: 120px 80px 100px 100px 1fr 100px;
+            gap: 1rem;
+            font-size: 0.8rem;
+            transition: background 0.2s;
+        }
+
+        .log-entry:hover {
+            background: #2a2a2a;
+        }
+
+        .log-entry.error {
+            border-left: 4px solid #e74c3c;
+        }
+
+        .log-entry.warn {
+            border-left: 4px solid #f39c12;
+        }
+
+        .log-entry.info {
+            border-left: 4px solid #3498db;
+        }
+
+        .log-entry.debug {
+            border-left: 4px solid #2ecc71;
+        }
+
+        .log-entry.trace {
+            border-left: 4px solid #95a5a6;
+        }
+
+        .log-timestamp {
+            color: #888;
+        }
+
+        .log-level {
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .log-level.error {
+            color: #e74c3c;
+        }
+
+        .log-level.warn {
+            color: #f39c12;
+        }
+
+        .log-level.info {
+            color: #3498db;
+        }
+
+        .log-level.debug {
+            color: #2ecc71;
+        }
+
+        .log-level.trace {
+            color: #95a5a6;
+        }
+
+        .log-context {
+            color: #667eea;
+        }
+
+        .log-category {
+            color: #f39c12;
+        }
+
+        .log-message {
+            color: #fff;
+        }
+
+        .log-data {
+            color: #888;
+            font-family: monospace;
+            font-size: 0.7rem;
+            max-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .no-logs {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #667eea;
+        }
+
+        @media (max-width: 768px) {
+            .log-header,
+            .log-entry {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+            
+            .log-header {
+                display: none;
+            }
+            
+            .log-entry {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 Log Viewer</h1>
+        <p>Real-time application logs and debugging information</p>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="logSource">Source:</label>
+            <select id="logSource">
+                <option value="all">All Sources</option>
+                <option value="TEAM">Team Client</option>
+                <option value="ADMIN">Admin Panel</option>
+                <option value="SERVER">Server</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="logLevel">Level:</label>
+            <select id="logLevel">
+                <option value="all">All Levels</option>
+                <option value="ERROR">Error</option>
+                <option value="WARN">Warning</option>
+                <option value="INFO">Info</option>
+                <option value="DEBUG">Debug</option>
+                <option value="TRACE">Trace</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="logCategory">Category:</label>
+            <select id="logCategory">
+                <option value="all">All Categories</option>
+                <option value="NETWORK">Network</option>
+                <option value="WEBSOCKET">WebSocket</option>
+                <option value="USER_ACTION">User Action</option>
+                <option value="GAME_STATE">Game State</option>
+                <option value="DATA">Data</option>
+                <option value="HTTP">HTTP</option>
+                <option value="TEAM">Team</option>
+                <option value="ADMIN">Admin</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="searchTerm">Search:</label>
+            <input type="text" id="searchTerm" placeholder="Search logs...">
+        </div>
+
+        <button onclick="clearLogs()">Clear Logs</button>
+        <button onclick="exportLogs()">Export Logs</button>
+        <button onclick="refreshLogs()">Refresh</button>
+    </div>
+
+    <div class="stats">
+        <div class="stat-item">
+            <div class="stat-value" id="totalLogs">0</div>
+            <div class="stat-label">Total Logs</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="errorLogs">0</div>
+            <div class="stat-label">Errors</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="warnLogs">0</div>
+            <div class="stat-label">Warnings</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="infoLogs">0</div>
+            <div class="stat-label">Info</div>
+        </div>
+    </div>
+
+    <div class="log-container">
+        <div class="log-header">
+            <div>Timestamp</div>
+            <div>Level</div>
+            <div>Context</div>
+            <div>Category</div>
+            <div>Message</div>
+            <div>Data</div>
+        </div>
+        <div class="log-list" id="logList">
+            <div class="loading">Loading logs...</div>
+        </div>
+    </div>
+
+    <script src="logger.js"></script>
+    <script>
+        class LogViewer {
+            constructor() {
+                this.logs = [];
+                this.filteredLogs = [];
+                this.setupEventListeners();
+                this.loadLogs();
+                this.startAutoRefresh();
+            }
+
+            setupEventListeners() {
+                document.getElementById('logSource').addEventListener('change', () => this.filterLogs());
+                document.getElementById('logLevel').addEventListener('change', () => this.filterLogs());
+                document.getElementById('logCategory').addEventListener('change', () => this.filterLogs());
+                document.getElementById('searchTerm').addEventListener('input', () => this.filterLogs());
+            }
+
+            loadLogs() {
+                // Load logs from localStorage
+                const teamLogs = JSON.parse(localStorage.getItem('tuna_logs_TEAM') || '[]');
+                const adminLogs = JSON.parse(localStorage.getItem('tuna_logs_ADMIN') || '[]');
+                
+                this.logs = [...teamLogs, ...adminLogs].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                this.filterLogs();
+                this.updateStats();
+            }
+
+            filterLogs() {
+                const source = document.getElementById('logSource').value;
+                const level = document.getElementById('logLevel').value;
+                const category = document.getElementById('logCategory').value;
+                const searchTerm = document.getElementById('searchTerm').value.toLowerCase();
+
+                this.filteredLogs = this.logs.filter(log => {
+                    const matchesSource = source === 'all' || log.context === source;
+                    const matchesLevel = level === 'all' || log.level === level;
+                    const matchesCategory = category === 'all' || log.category === category;
+                    const matchesSearch = !searchTerm || 
+                        log.message.toLowerCase().includes(searchTerm) ||
+                        (log.data && JSON.stringify(log.data).toLowerCase().includes(searchTerm));
+
+                    return matchesSource && matchesLevel && matchesCategory && matchesSearch;
+                });
+
+                this.renderLogs();
+            }
+
+            renderLogs() {
+                const logList = document.getElementById('logList');
+                
+                if (this.filteredLogs.length === 0) {
+                    logList.innerHTML = '<div class="no-logs">No logs found matching the current filters</div>';
+                    return;
+                }
+
+                logList.innerHTML = this.filteredLogs.map(log => `
+                    <div class="log-entry ${log.level.toLowerCase()}">
+                        <div class="log-timestamp">${new Date(log.timestamp).toLocaleTimeString()}</div>
+                        <div class="log-level ${log.level.toLowerCase()}">${log.level}</div>
+                        <div class="log-context">${log.context}</div>
+                        <div class="log-category">${log.category}</div>
+                        <div class="log-message">${log.message}</div>
+                        <div class="log-data" title="${log.data ? JSON.stringify(log.data, null, 2) : ''}">
+                            ${log.data ? 'Has Data' : ''}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            updateStats() {
+                document.getElementById('totalLogs').textContent = this.logs.length;
+                document.getElementById('errorLogs').textContent = this.logs.filter(l => l.level === 'ERROR').length;
+                document.getElementById('warnLogs').textContent = this.logs.filter(l => l.level === 'WARN').length;
+                document.getElementById('infoLogs').textContent = this.logs.filter(l => l.level === 'INFO').length;
+            }
+
+            startAutoRefresh() {
+                setInterval(() => {
+                    this.loadLogs();
+                }, 5000); // Refresh every 5 seconds
+            }
+        }
+
+        function clearLogs() {
+            if (confirm('Are you sure you want to clear all logs?')) {
+                localStorage.removeItem('tuna_logs_TEAM');
+                localStorage.removeItem('tuna_logs_ADMIN');
+                logViewer.loadLogs();
+            }
+        }
+
+        function exportLogs() {
+            const logs = logViewer.logs;
+            const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tuna_logs_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function refreshLogs() {
+            logViewer.loadLogs();
+        }
+
+        // Initialize log viewer
+        const logViewer = new LogViewer();
+    </script>
+</body>
+</html>

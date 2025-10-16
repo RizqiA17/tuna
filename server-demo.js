@@ -4,8 +4,18 @@ const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const path = require("path");
+const http = require("http");
+const { Server } = require("socket.io");
+const { serverLogger } = require("./server-logger");
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 const PORT = process.env.PORT || 3000;
 
 // Security middleware
@@ -68,16 +78,265 @@ app.use(express.static(path.join(__dirname, "public")));
 const mockTeams = new Map();
 const mockDecisions = new Map();
 
+// WebSocket connection handling
+const connectedTeams = new Map(); // teamId -> socketId
+const connectedAdmins = new Set(); // socketId
+
+io.on('connection', (socket) => {
+  serverLogger.websocket('connection', { socketId: socket.id }, socket.id, 'IN');
+
+  // Team connection
+  socket.on('team-join', (data) => {
+    const { teamId, teamName } = data;
+    
+    // Debug logging
+    serverLogger.debug("Team join attempt", { 
+      teamId, 
+      teamName, 
+      socketId: socket.id,
+      currentConnectedTeams: Array.from(connectedTeams.keys()),
+      currentSize: connectedTeams.size,
+      rawData: data
+    });
+    
+    // Validate teamId
+    if (!teamId || teamId === null || teamId === undefined) {
+      serverLogger.error("Invalid teamId received", { 
+        teamId, 
+        teamName, 
+        socketId: socket.id,
+        rawData: data
+      });
+      return;
+    }
+    
+    // Store complete team data, not just socket ID
+    connectedTeams.set(teamId, {
+      teamId,
+      teamName,
+      socketId: socket.id,
+      connectedAt: new Date().toISOString(),
+      position: 1,
+      score: 0,
+      isActive: true
+    });
+    socket.teamId = teamId;
+    socket.teamName = teamName;
+    
+    serverLogger.team('joined', teamId, teamName, { 
+      socketId: socket.id,
+      connectedTeamsCount: connectedTeams.size,
+      allTeamIds: Array.from(connectedTeams.keys())
+    });
+    
+    // Notify admins about team connection
+    io.to('admin-room').emit('team-connected', { 
+      teamId, 
+      teamName,
+      socketId: socket.id,
+      connectedAt: new Date().toISOString()
+    });
+    
+    // Send updated team list to all admins
+    const teams = Array.from(connectedTeams.values());
+    
+    serverLogger.debug("Sending connected teams to admin", { 
+      teams, 
+      adminCount: connectedAdmins.size 
+    });
+    io.to('admin-room').emit('connected-teams', teams);
+  });
+
+  // Admin connection
+  socket.on('admin-join', () => {
+    connectedAdmins.add(socket.id);
+    socket.join('admin-room');
+    
+    serverLogger.admin('connected', socket.id, { 
+      connectedAdminsCount: connectedAdmins.size,
+      connectedTeamsCount: connectedTeams.size 
+    });
+    
+    // Send current connected teams to admin
+    const teams = Array.from(connectedTeams.values());
+    
+    serverLogger.debug("Sending current teams to admin", { 
+      teams, 
+      adminSocketId: socket.id 
+    });
+    socket.emit('connected-teams', teams);
+  });
+
+  // Game control events
+  socket.on('start-game-all', async () => {
+    serverLogger.gameState('started', { 
+      adminSocketId: socket.id,
+      connectedTeamsCount: connectedTeams.size 
+    });
+    io.to('admin-room').emit('game-started');
+    io.emit('game-start-command');
+  });
+
+  socket.on('next-scenario-all', () => {
+    serverLogger.gameState('scenario-advanced', { 
+      adminSocketId: socket.id,
+      connectedTeamsCount: connectedTeams.size 
+    });
+    io.to('admin-room').emit('scenario-advanced');
+    io.emit('next-scenario-command');
+  });
+
+  socket.on('end-game-all', () => {
+    serverLogger.gameState('ended', { 
+      adminSocketId: socket.id,
+      connectedTeamsCount: connectedTeams.size 
+    });
+    io.to('admin-room').emit('game-ended');
+    io.emit('end-game-command');
+  });
+
+  socket.on('kick-team', (data) => {
+    const { teamId } = data;
+    const teamSocketId = connectedTeams.get(teamId);
+    if (teamSocketId) {
+      io.to(teamSocketId).emit('team-kicked');
+      connectedTeams.delete(teamId);
+      console.log(`👢 Team ${teamId} kicked from game`);
+    }
+  });
+
+  // Team progress updates
+  socket.on('team-progress', (data) => {
+    const { teamId, currentPosition, totalScore, isCompleted } = data;
+    
+    // Update team data in connectedTeams
+    if (connectedTeams.has(teamId)) {
+      const teamData = connectedTeams.get(teamId);
+      teamData.position = currentPosition;
+      teamData.score = totalScore;
+      teamData.isCompleted = isCompleted;
+      connectedTeams.set(teamId, teamData);
+    }
+    
+    serverLogger.team('progress-update', teamId, socket.teamName, {
+      currentPosition,
+      totalScore,
+      isCompleted,
+      socketId: socket.id
+    });
+    
+    io.to('admin-room').emit('team-progress-update', {
+      teamId,
+      teamName: socket.teamName,
+      currentPosition,
+      totalScore,
+      isCompleted
+    });
+  });
+
+  // Team decision submission
+  socket.on('team-decision', (data) => {
+    const { teamId, position, score } = data;
+    
+    // Update team data in connectedTeams
+    if (connectedTeams.has(teamId)) {
+      const teamData = connectedTeams.get(teamId);
+      teamData.position = position;
+      teamData.score = score;
+      connectedTeams.set(teamId, teamData);
+    }
+    
+    serverLogger.team('decision-submitted', teamId, socket.teamName, {
+      position,
+      score,
+      socketId: socket.id
+    });
+    
+    io.to('admin-room').emit('team-decision-submitted', {
+      teamId,
+      teamName: socket.teamName,
+      position,
+      score
+    });
+  });
+
+  // Disconnection handling
+  socket.on('disconnect', () => {
+    serverLogger.websocket('disconnect', { socketId: socket.id }, socket.id, 'IN');
+    
+    if (socket.teamId) {
+      serverLogger.debug("Team disconnect", { 
+        teamId: socket.teamId, 
+        teamName: socket.teamName,
+        socketId: socket.id,
+        beforeDelete: Array.from(connectedTeams.keys()),
+        beforeSize: connectedTeams.size
+      });
+      
+      serverLogger.team('disconnected', socket.teamId, socket.teamName, {
+        socketId: socket.id,
+        connectedTeamsCount: connectedTeams.size - 1
+      });
+      
+      connectedTeams.delete(socket.teamId);
+      
+      serverLogger.debug("After team delete", { 
+        afterDelete: Array.from(connectedTeams.keys()),
+        afterSize: connectedTeams.size
+      });
+      io.to('admin-room').emit('team-disconnected', {
+        teamId: socket.teamId,
+        teamName: socket.teamName
+      });
+      
+      // Send updated team list to all admins
+      const teams = Array.from(connectedTeams.values());
+      io.to('admin-room').emit('connected-teams', teams);
+    }
+    
+    if (connectedAdmins.has(socket.id)) {
+      serverLogger.admin('disconnected', socket.id, {
+        connectedAdminsCount: connectedAdmins.size - 1
+      });
+      connectedAdmins.delete(socket.id);
+    }
+  });
+});
+
 // Generate demo token
 const generateDemoToken = (teamId) => {
   return `demo_token_${teamId}_${Date.now()}`;
 };
 
+// Simple admin authentication middleware for demo
+const authenticateAdmin = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token || !token.startsWith('demo_admin_token_')) {
+    return res.status(401).json({
+      success: false,
+      message: "Admin access required"
+    });
+  }
+
+  req.admin = { id: "admin", username: "admin" };
+  next();
+};
+
 // Demo API routes
 app.post("/api/auth/register", (req, res) => {
+  const startTime = Date.now();
+  const requestId = 'req_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  
+  serverLogger.http('POST', '/api/auth/register', null, null, req.body, null, requestId);
+  
   const { teamName, password, players } = req.body;
 
   if (mockTeams.has(teamName)) {
+    const duration = Date.now() - startTime;
+    serverLogger.http('POST', '/api/auth/register', 409, duration, req.body, { message: "Team name already exists" }, requestId);
+    
     return res.status(409).json({
       success: false,
       message: "Team name already exists",
@@ -96,7 +355,7 @@ app.post("/api/auth/register", (req, res) => {
     players: players || [],
   });
 
-  res.status(201).json({
+  const responseData = {
     success: true,
     message: "Team registered successfully",
     data: {
@@ -105,7 +364,13 @@ app.post("/api/auth/register", (req, res) => {
       token,
       players: players ? players.length : 0,
     },
-  });
+  };
+
+  const duration = Date.now() - startTime;
+  serverLogger.http('POST', '/api/auth/register', 201, duration, req.body, responseData, requestId);
+  serverLogger.data('create', { teamId, teamName, playerCount: players?.length || 0 }, 'TEAMS');
+
+  res.status(201).json(responseData);
 });
 
 app.post("/api/auth/login", (req, res) => {
@@ -532,6 +797,96 @@ const gameScenarios = [
   },
 ];
 
+// Admin routes for demo
+app.post("/api/admin/login", (req, res) => {
+  const { username, password } = req.body;
+
+  // Simple admin credentials check for demo
+  if (username === "admin" && password === "tuna_admin_2024") {
+    const token = `demo_admin_token_${Date.now()}`;
+    
+    res.json({
+      success: true,
+      message: "Admin login successful",
+      data: {
+        token,
+        admin: {
+          id: "admin",
+          username: "admin"
+        }
+      }
+    });
+  } else {
+    res.status(401).json({
+      success: false,
+      message: "Invalid admin credentials"
+    });
+  }
+});
+
+app.get("/api/admin/teams", authenticateAdmin, (req, res) => {
+  const teams = Array.from(mockTeams.values()).map(team => ({
+    id: team.id,
+    team_name: team.name,
+    current_position: team.currentPosition,
+    total_score: team.totalScore,
+    created_at: new Date().toISOString(),
+    player_count: team.players.length,
+    players: team.players.map(p => p.name).join(', ')
+  }));
+
+  res.json({
+    success: true,
+    data: teams,
+  });
+});
+
+app.get("/api/admin/stats", authenticateAdmin, (req, res) => {
+  const teams = Array.from(mockTeams.values());
+  const totalTeams = teams.length;
+  const activeTeams = teams.filter(t => t.currentPosition > 1).length;
+  const completedTeams = teams.filter(t => t.currentPosition > 7).length;
+  const averageScore = teams.length > 0 ? teams.reduce((sum, t) => sum + t.totalScore, 0) / teams.length : 0;
+
+  res.json({
+    success: true,
+    data: {
+      totalTeams,
+      activeTeams,
+      completedTeams,
+      averageScore,
+      scenarioStats: gameScenarios.map(scenario => ({
+        position: scenario.position,
+        title: scenario.title,
+        completion_count: 0, // Demo doesn't track this
+        average_score: 0,
+        max_score: 0
+      }))
+    },
+  });
+});
+
+app.get("/api/admin/leaderboard", authenticateAdmin, (req, res) => {
+  const leaderboard = Array.from(mockTeams.values())
+    .map(team => ({
+      id: team.id,
+      team_name: team.name,
+      current_position: team.currentPosition,
+      total_score: team.totalScore,
+      created_at: new Date().toISOString(),
+      player_count: team.players.length,
+      completed_scenarios: Math.max(0, team.currentPosition - 1),
+      average_score: team.currentPosition > 1 ? team.totalScore / (team.currentPosition - 1) : 0,
+      last_activity: new Date().toISOString()
+    }))
+    .sort((a, b) => b.total_score - a.total_score);
+
+  res.json({
+    success: true,
+    data: leaderboard,
+  });
+});
+
 app.get("/api/game/scenario/:position", (req, res) => {
   const position = parseInt(req.params.position);
   const scenario = gameScenarios.find((s) => s.position === position);
@@ -598,6 +953,47 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// Admin panel route
+app.get("/admin", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "admin.html"));
+});
+
+// Log viewer route
+app.get("/logs", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "log-viewer.html"));
+});
+
+// Log statistics API
+app.get("/api/logs/stats", (req, res) => {
+  try {
+    const stats = serverLogger.getStats();
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to get log statistics",
+      error: error.message
+    });
+  }
+});
+
+// Export logs API
+app.get("/api/logs/export", (req, res) => {
+  try {
+    const exportFile = serverLogger.exportLogs();
+    res.download(exportFile, `tuna_server_logs_${new Date().toISOString().split('T')[0]}.json`);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to export logs",
+      error: error.message
+    });
+  }
+});
+
 // Serve frontend
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
@@ -621,19 +1017,32 @@ app.use((req, res) => {
   });
 });
 
+// Export io for use in routes
+app.set('io', io);
+
 // Start server
 const startServer = async () => {
   try {
-    app.listen(PORT, () => {
+    // Start HTTP server with WebSocket
+    server.listen(PORT, () => {
+      serverLogger.system('server', 'started', {
+        port: PORT,
+        mode: 'DEMO',
+        features: ['WebSocket', 'REST API', 'Admin Panel']
+      });
+      
       console.log(`🚀 Tuna Adventure Game DEMO server running on port ${PORT}`);
       console.log(`📱 Frontend: http://localhost:${PORT}`);
       console.log(`🔗 API: http://localhost:${PORT}/api`);
       console.log(`💚 Health: http://localhost:${PORT}/api/health`);
+      console.log(`🔌 WebSocket: ws://localhost:${PORT}`);
       console.log(`\n🎮 DEMO MODE: Game berjalan tanpa database`);
       console.log(`📝 Data akan hilang saat server restart`);
       console.log(`\n🎯 Silakan buka browser dan coba game!`);
+      console.log(`👨‍💼 Admin Panel: http://localhost:${PORT}/admin`);
     });
   } catch (error) {
+    serverLogger.error("Failed to start server", { error: error.message, stack: error.stack });
     console.error("❌ Failed to start server:", error);
     process.exit(1);
   }

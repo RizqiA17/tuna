@@ -7,6 +7,13 @@ class AdminPanel {
         this.teamsData = [];
         this.statsData = {};
         this.scenarioData = {};
+        this.socket = null;
+        this.connectedTeams = new Map();
+        this.realTimeTeams = new Map();
+        this.gameState = 'waiting'; // waiting, running, ended
+        this.teamsCompletedCurrentStep = new Set();
+        this.currentStep = 1;
+        this.logger = window.AdminLogger || new Logger('ADMIN');
         
         this.init();
     }
@@ -16,6 +23,9 @@ class AdminPanel {
         
         // Initialize dark mode
         this.initDarkMode();
+        
+        // Initialize WebSocket connection
+        this.initWebSocket();
         
         this.checkRequiredElements();
         this.setupEventListeners();
@@ -141,6 +151,28 @@ class AdminPanel {
             });
         }
 
+        // Game control buttons
+        const startGameAllBtn = document.getElementById("startGameAllBtn");
+        if (startGameAllBtn) {
+            startGameAllBtn.addEventListener("click", () => {
+                this.startGameForAllTeams();
+            });
+        }
+
+        const nextScenarioAllBtn = document.getElementById("nextScenarioAllBtn");
+        if (nextScenarioAllBtn) {
+            nextScenarioAllBtn.addEventListener("click", () => {
+                this.nextScenarioForAllTeams();
+            });
+        }
+
+        const endGameAllBtn = document.getElementById("endGameAllBtn");
+        if (endGameAllBtn) {
+            endGameAllBtn.addEventListener("click", () => {
+                this.endGameForAllTeams();
+            });
+        }
+
         // Event delegation for dynamically created buttons
         document.addEventListener("click", (e) => {
             if (e.target.closest(".view-team-btn")) {
@@ -153,6 +185,12 @@ class AdminPanel {
                 const position = e.target.closest(".scenario-card").dataset.position;
                 console.log("View scenario decisions clicked for position:", position);
                 this.showScenarioDecisions(parseInt(position));
+            }
+
+            if (e.target.closest(".kick-team-btn")) {
+                const teamId = e.target.closest(".kick-team-btn").dataset.teamId;
+                console.log("Kick team clicked for team:", teamId);
+                this.kickTeam(parseInt(teamId));
             }
         });
     }
@@ -185,6 +223,248 @@ class AdminPanel {
         } finally {
             this.showLoading(false);
         }
+    }
+
+    // WebSocket Methods
+    initWebSocket() {
+        this.socket = io();
+        
+        this.socket.on('connect', () => {
+            console.log('🔌 Admin connected to server');
+            this.socket.emit('admin-join');
+        });
+
+        this.socket.on('disconnect', () => {
+            console.log('🔌 Admin disconnected from server');
+        });
+
+        // Listen for team connections
+        this.socket.on('connected-teams', (teams) => {
+            console.log('👥 Received connected teams:', teams);
+            this.connectedTeams.clear();
+            teams.forEach(team => {
+                this.connectedTeams.set(team.teamId, team);
+            });
+            this.updateConnectedTeamsCount();
+            this.updateRealTimeMonitoring();
+            this.updateGameControlButtons();
+        });
+
+        this.socket.on('team-connected', (data) => {
+            console.log('👥 Team connected:', data);
+            this.connectedTeams.set(data.teamId, data);
+            this.updateConnectedTeamsCount();
+            this.updateRealTimeMonitoring();
+            this.updateGameControlButtons();
+            this.showNotification(`Team ${data.teamName} connected`, 'info');
+        });
+
+        this.socket.on('team-disconnected', (data) => {
+            console.log('👥 Team disconnected:', data);
+            this.connectedTeams.delete(data.teamId);
+            this.teamsCompletedCurrentStep.delete(data.teamId);
+            this.updateConnectedTeamsCount();
+            this.updateRealTimeMonitoring();
+            this.updateGameControlButtons();
+            this.showNotification(`Team ${data.teamName} disconnected`, 'warning');
+        });
+
+        // Listen for team progress updates
+        this.socket.on('team-progress-update', (data) => {
+            console.log('📊 Team progress update:', data);
+            this.realTimeTeams.set(data.teamId, data);
+            
+            // Update team data in connectedTeams
+            if (this.connectedTeams.has(data.teamId)) {
+                const teamData = this.connectedTeams.get(data.teamId);
+                teamData.position = data.currentPosition;
+                teamData.score = data.totalScore;
+                teamData.isCompleted = data.isCompleted;
+                this.connectedTeams.set(data.teamId, teamData);
+            }
+            
+            // Track team completion for current step
+            // A team completes a step when they submit a decision
+            // We track this by checking if they have a position > 1 (meaning they submitted at least one decision)
+            if (data.currentPosition > 1) {
+                this.teamsCompletedCurrentStep.add(data.teamId);
+                console.log(`✅ Team ${data.teamName} completed step ${this.currentStep}, total completed: ${this.teamsCompletedCurrentStep.size}`);
+            }
+            
+            this.updateRealTimeMonitoring();
+            this.updateGameControlButtons();
+        });
+
+        this.socket.on('team-decision-submitted', (data) => {
+            console.log('📝 Team decision submitted:', data);
+            
+            // Update team data in connectedTeams
+            if (this.connectedTeams.has(data.teamId)) {
+                const teamData = this.connectedTeams.get(data.teamId);
+                teamData.position = data.position;
+                teamData.score = data.score;
+                this.connectedTeams.set(data.teamId, teamData);
+            }
+            
+            this.updateRealTimeMonitoring();
+            this.showNotification(`Team ${data.teamName} submitted decision for position ${data.position}`, 'success');
+        });
+
+        // Listen for game status updates
+        this.socket.on('game-started', () => {
+            console.log('🎮 Game started for all teams');
+            this.updateGameStatus('Running');
+            this.updateGameControlButtons();
+            this.showNotification('Game started for all teams', 'success');
+        });
+
+        this.socket.on('scenario-advanced', () => {
+            console.log('➡️ Scenario advanced for all teams');
+            this.updateGameControlButtons();
+            this.showNotification('Advanced to next scenario for all teams', 'info');
+        });
+
+        this.socket.on('game-ended', () => {
+            console.log('🏁 Game ended for all teams');
+            this.updateGameStatus('Ended');
+            this.updateGameControlButtons();
+            this.showNotification('Game ended for all teams', 'warning');
+        });
+    }
+
+    // Game Control Methods
+    startGameForAllTeams() {
+        if (this.socket) {
+            this.gameState = 'running';
+            this.teamsCompletedCurrentStep.clear();
+            this.socket.emit('start-game-all');
+            this.updateGameStatus('Starting...');
+            this.updateGameControlButtons();
+        }
+    }
+
+    nextScenarioForAllTeams() {
+        if (this.socket) {
+            // Clear completed teams for next step
+            this.teamsCompletedCurrentStep.clear();
+            this.currentStep++;
+            this.socket.emit('next-scenario-all');
+            this.updateGameControlButtons();
+        }
+    }
+
+    endGameForAllTeams() {
+        if (this.socket) {
+            this.gameState = 'ended';
+            this.socket.emit('end-game-all');
+            this.updateGameStatus('Ending...');
+            this.updateGameControlButtons();
+        }
+    }
+
+    kickTeam(teamId) {
+        if (this.socket && confirm('Are you sure you want to kick this team?')) {
+            this.socket.emit('kick-team', { teamId });
+            this.showNotification('Team kicked from game', 'warning');
+        }
+    }
+
+    updateGameStatus(status) {
+        const statusElement = document.getElementById('gameStatus');
+        if (statusElement) {
+            statusElement.textContent = status;
+            statusElement.className = `status-value ${status.toLowerCase().replace(' ', '-')}`;
+        }
+    }
+
+    updateConnectedTeamsCount() {
+        const countElement = document.getElementById('connectedTeamsCount');
+        if (countElement) {
+            countElement.textContent = this.connectedTeams.size;
+        }
+    }
+
+    updateGameControlButtons() {
+        const startBtn = document.getElementById('startGameAllBtn');
+        const nextBtn = document.getElementById('nextScenarioAllBtn');
+        const endBtn = document.getElementById('endGameAllBtn');
+
+        if (startBtn) {
+            if (this.gameState === 'waiting') {
+                startBtn.style.display = 'block';
+                startBtn.disabled = false;
+                startBtn.textContent = '🎮 Mulai Permainan';
+            } else if (this.gameState === 'running') {
+                startBtn.style.display = 'none';
+            } else if (this.gameState === 'ended') {
+                startBtn.style.display = 'block';
+                startBtn.disabled = true;
+                startBtn.textContent = '🏁 Permainan Selesai';
+            }
+        }
+
+        if (nextBtn) {
+            if (this.gameState === 'running') {
+                // Check if all teams completed current step
+                const allTeamsCompleted = this.connectedTeams.size > 0 && 
+                    this.teamsCompletedCurrentStep.size >= this.connectedTeams.size;
+                
+                nextBtn.style.display = 'block';
+                nextBtn.disabled = !allTeamsCompleted;
+                nextBtn.textContent = allTeamsCompleted ? 
+                    '➡️ Lanjut ke Step Berikutnya' : 
+                    `⏳ Menunggu Tim (${this.teamsCompletedCurrentStep.size}/${this.connectedTeams.size})`;
+                
+                console.log(`🎯 Step completion: ${this.teamsCompletedCurrentStep.size}/${this.connectedTeams.size} teams completed`);
+            } else {
+                nextBtn.style.display = 'none';
+            }
+        }
+
+        if (endBtn) {
+            if (this.gameState === 'running' || this.gameState === 'waiting') {
+                endBtn.style.display = 'block';
+                endBtn.disabled = false;
+            } else {
+                endBtn.style.display = 'none';
+            }
+        }
+    }
+
+    updateRealTimeMonitoring() {
+        const container = document.getElementById('teamsMonitoringList');
+        if (!container) return;
+
+        container.innerHTML = '';
+        
+        // Show all connected teams with their current data
+        this.connectedTeams.forEach((team, teamId) => {
+            // Use team data directly, not progress data
+            const position = team.position || 1;
+            const score = team.score || 0;
+            const isCompleted = team.isCompleted || false;
+            
+            const teamCard = document.createElement('div');
+            teamCard.className = 'team-monitoring-card';
+            teamCard.innerHTML = `
+                <div class="team-info">
+                    <h4>${team.teamName || 'Unknown Team'}</h4>
+                    <div class="team-stats">
+                        <span class="stat">Position: ${position}/7</span>
+                        <span class="stat">Score: ${score}</span>
+                        <span class="stat ${isCompleted ? 'completed' : 'active'}">
+                            ${isCompleted ? 'Completed' : 'Active'}
+                        </span>
+                    </div>
+                </div>
+                <div class="team-actions">
+                    <button class="btn btn-outline btn-sm kick-team-btn" data-team-id="${teamId}">
+                        <i class="fas fa-user-times"></i> Kick
+                    </button>
+                </div>
+            `;
+            container.appendChild(teamCard);
+        });
     }
 
     async apiRequest(endpoint, options = {}) {
@@ -236,6 +516,11 @@ class AdminPanel {
         this.currentSection = sectionName;
 
         // Load section-specific data
+        if (sectionName === "game-control") {
+            // Update real-time monitoring when switching to game control
+            this.updateRealTimeMonitoring();
+            this.updateGameControlButtons();
+        }
         // Analytics section is hidden - no need to load
         if (sectionName === "analytics") {
             this.loadAnalytics();
