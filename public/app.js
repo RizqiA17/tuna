@@ -115,9 +115,8 @@ class TunaAdventureGame {
         document.getElementById("scenario-content").classList.add("active");
       });
 
-    document.getElementById("nextScenarioBtn").addEventListener("click", () => {
-      this.nextScenario();
-    });
+    // Next scenario is now controlled by admin only
+    // Removed nextScenarioBtn event listener
 
     document
       .getElementById("viewLeaderboardBtn")
@@ -602,16 +601,7 @@ class TunaAdventureGame {
     }
 
     // Update next scenario button visibility
-    const nextScenarioBtn = document.getElementById("nextScenarioBtn");
-    if (nextScenarioBtn) {
-      if (this.gameState === 'running' && this.teamData && this.teamData.currentPosition > 7) {
-        nextScenarioBtn.style.display = 'none';
-      } else if (this.gameState === 'running') {
-        nextScenarioBtn.style.display = 'block';
-      } else {
-        nextScenarioBtn.style.display = 'none';
-      }
-    }
+    // Next scenario button removed - controlled by admin only
   }
 
   async startDecision() {
