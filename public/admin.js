@@ -35,6 +35,13 @@ class AdminPanel {
             try {
                 // Test if token is still valid
                 await this.apiRequest("/admin/teams");
+                
+                // Restore admin state
+                const stateRestored = this.restoreAdminState();
+                if (stateRestored) {
+                    console.log("Admin state restored successfully");
+                }
+                
                 this.showAdminPanel();
             } catch (error) {
                 console.log("Token invalid, showing login screen");
@@ -337,6 +344,7 @@ class AdminPanel {
         if (this.socket) {
             this.gameState = 'running';
             this.teamsCompletedCurrentStep.clear();
+            this.saveAdminState();
             this.socket.emit('start-game-all');
             this.updateGameStatus('Starting...');
             this.updateGameControlButtons();
@@ -348,6 +356,7 @@ class AdminPanel {
             // Clear completed teams for next step
             this.teamsCompletedCurrentStep.clear();
             this.currentStep++;
+            this.saveAdminState();
             this.socket.emit('next-scenario-all');
             this.updateGameControlButtons();
         }
@@ -356,6 +365,7 @@ class AdminPanel {
     endGameForAllTeams() {
         if (this.socket) {
             this.gameState = 'ended';
+            this.saveAdminState();
             this.socket.emit('end-game-all');
             this.updateGameStatus('Ending...');
             this.updateGameControlButtons();
@@ -514,6 +524,7 @@ class AdminPanel {
         }
 
         this.currentSection = sectionName;
+        this.saveAdminState();
 
         // Load section-specific data
         if (sectionName === "game-control") {
@@ -970,6 +981,7 @@ class AdminPanel {
     logout() {
         this.token = null;
         localStorage.removeItem("tuna_token");
+        this.clearAdminState();
         this.showLoginScreen();
         this.showNotification("Logged out successfully", "info");
     }
@@ -1016,6 +1028,38 @@ class AdminPanel {
             icon.className = savedTheme === "dark" ? "fas fa-sun" : "fas fa-moon";
             toggleBtn.title = `Switch to ${savedTheme === "dark" ? "Light" : "Dark"} Mode`;
         }
+    }
+
+    // Admin state persistence methods
+    saveAdminState() {
+        const adminState = {
+            currentSection: this.currentSection,
+            gameState: this.gameState,
+            currentStep: this.currentStep,
+            teamsCompletedCurrentStep: Array.from(this.teamsCompletedCurrentStep)
+        };
+        localStorage.setItem("tuna_admin_state", JSON.stringify(adminState));
+    }
+
+    restoreAdminState() {
+        try {
+            const savedState = localStorage.getItem("tuna_admin_state");
+            if (savedState) {
+                const adminState = JSON.parse(savedState);
+                this.currentSection = adminState.currentSection || "overview";
+                this.gameState = adminState.gameState || 'waiting';
+                this.currentStep = adminState.currentStep || 1;
+                this.teamsCompletedCurrentStep = new Set(adminState.teamsCompletedCurrentStep || []);
+                return true;
+            }
+        } catch (error) {
+            console.error("Error restoring admin state:", error);
+        }
+        return false;
+    }
+
+    clearAdminState() {
+        localStorage.removeItem("tuna_admin_state");
     }
 }
 

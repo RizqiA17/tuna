@@ -15,6 +15,12 @@ class TunaAdventureGame {
     this.currentScenarioPosition = 1;
     this.hasJoinedAsTeam = false;
     this.logger = window.TeamLogger || new Logger('TEAM');
+    
+    // Timer persistence properties
+    this.timerStartTime = null;
+    this.timerDuration = 900; // 15 minutes in seconds
+    this.isTimerActive = false;
+    this.currentScreen = 'login-screen';
 
     this.init();
   }
@@ -43,13 +49,32 @@ class TunaAdventureGame {
       try {
         this.logger.info("Token found, attempting to load team data", { token: this.token.substring(0, 20) + '...' });
         await this.loadTeamData();
+        
+        // Try to restore game state first
+        const gameStateRestored = this.restoreGameState();
+        
         this.showScreen("game-screen");
         this.updateGameUI();
+        
+        // Try to restore timer state
+        const timerRestored = this.restoreTimerState();
+        
+        if (timerRestored) {
+          this.logger.info("Timer state restored successfully");
+          // Show the appropriate screen based on restored state
+          this.showScreen("game-screen");
+          this.showAppropriateContent();
+        } else if (gameStateRestored) {
+          this.logger.info("Game state restored successfully");
+          this.showAppropriateContent();
+        }
+        
         this.logger.info("Game screen shown, UI updated successfully");
       } catch (error) {
         this.logger.error("Token invalid or failed to load team data", { error: error.message, stack: error.stack });
         this.token = null;
         localStorage.removeItem("tuna_token");
+        this.clearTimerState();
         this.showScreen("login-screen");
         this.showNotification(
           "Sesi Anda telah berakhir. Silakan login kembali.",
@@ -543,8 +568,10 @@ class TunaAdventureGame {
         this.isWaitingForAdmin = false;
         this.gameState = 'running';
         this.currentScenarioPosition = 1;
+        this.currentScreen = 'scenario-content';
         this.updateScenarioUI();
         this.updateGameStateUI();
+        this.saveGameState();
 
         // Hide welcome content and show scenario content
         document.getElementById("welcome-content").classList.remove("active");
@@ -568,6 +595,7 @@ class TunaAdventureGame {
   async nextScenarioFromAdmin() {
     console.log("➡️ Moving to next scenario from admin command...");
     this.currentScenarioPosition++;
+    this.saveGameState();
     this.nextScenario();
   }
 
@@ -576,6 +604,8 @@ class TunaAdventureGame {
     this.isGameStarted = false;
     this.isWaitingForAdmin = true;
     this.gameState = 'ended';
+    this.currentScreen = 'complete-content';
+    this.saveGameState();
     this.updateGameStateUI();
     this.showNotification(
       "Admin telah mengakhiri permainan.",
@@ -608,6 +638,10 @@ class TunaAdventureGame {
     // Hide scenario content and show decision content
     document.getElementById("scenario-content").classList.remove("active");
     document.getElementById("decision-content").classList.add("active");
+    
+    // Update current screen state
+    this.currentScreen = 'decision-content';
+    this.saveGameState();
 
     this.startTimer();
     this.showNotification(
@@ -655,6 +689,10 @@ class TunaAdventureGame {
 
         // Update game state UI
         this.updateGameStateUI();
+        
+        // Update current screen state
+        this.currentScreen = 'results-content';
+        this.saveGameState();
 
         // Show results
         await this.showResults(response.result);
@@ -684,6 +722,10 @@ class TunaAdventureGame {
     // Hide decision content and show results content
     document.getElementById("decision-content").classList.remove("active");
     document.getElementById("results-content").classList.add("active");
+    
+    // Update current screen state
+    this.currentScreen = 'results-content';
+    this.saveGameState();
 
     this.updateGameUI();
   }
@@ -696,6 +738,8 @@ class TunaAdventureGame {
       // Hide results and show complete content
       document.getElementById("results-content").classList.remove("active");
       document.getElementById("complete-content").classList.add("active");
+      this.currentScreen = 'complete-content';
+      this.saveGameState();
       this.updateCompleteUI();
     } else {
       // Hide results and load next scenario
@@ -710,6 +754,8 @@ class TunaAdventureGame {
           this.currentScenario = nextScenario;
           this.updateScenarioUI();
           document.getElementById("scenario-content").classList.add("active");
+          this.currentScreen = 'scenario-content';
+          this.saveGameState();
           this.showNotification(
             `Selamat! Lanjut ke Pos ${this.teamData.currentPosition}: ${nextScenario.title}`,
             "success"
@@ -717,6 +763,8 @@ class TunaAdventureGame {
         } else {
           // No more scenarios
           document.getElementById("complete-content").classList.add("active");
+          this.currentScreen = 'complete-content';
+          this.saveGameState();
           this.updateCompleteUI();
         }
       } catch (error) {
@@ -762,6 +810,8 @@ class TunaAdventureGame {
     this.teamData = null;
     this.currentScenario = null;
     this.stopTimer();
+    this.clearTimerState();
+    localStorage.removeItem("tuna_game_state");
     this.showScreen("login-screen");
     this.resetForms();
     this.showNotification("Anda telah keluar dari permainan.", "info");
@@ -837,9 +887,19 @@ class TunaAdventureGame {
   // Timer
   startTimer() {
     this.timeLeft = 900; // 15 minutes
+    this.timerStartTime = Date.now();
+    this.timerDuration = 900;
+    this.isTimerActive = true;
+    
+    // Save timer state to localStorage
+    this.saveTimerState();
+    
     this.timer = setInterval(() => {
       this.timeLeft--;
       this.updateTimerDisplay();
+      
+      // Update saved timer state
+      this.saveTimerState();
 
       if (this.timeLeft <= 0) {
         this.stopTimer();
@@ -858,6 +918,9 @@ class TunaAdventureGame {
       clearInterval(this.timer);
       this.timer = null;
     }
+    this.isTimerActive = false;
+    this.timerStartTime = null;
+    this.clearTimerState();
   }
 
   updateTimerDisplay() {
@@ -865,6 +928,123 @@ class TunaAdventureGame {
     const seconds = this.timeLeft % 60;
     const display = `${minutes}:${seconds.toString().padStart(2, "0")}`;
     document.getElementById("timeRemaining").textContent = display;
+  }
+
+  // Timer persistence methods
+  saveTimerState() {
+    if (this.isTimerActive && this.timerStartTime) {
+      const timerState = {
+        startTime: this.timerStartTime,
+        duration: this.timerDuration,
+        isActive: this.isTimerActive,
+        currentScenario: this.currentScenario ? this.currentScenario.position : null,
+        gameState: this.gameState,
+        currentScreen: this.currentScreen
+      };
+      localStorage.setItem("tuna_timer_state", JSON.stringify(timerState));
+    }
+  }
+
+  restoreTimerState() {
+    try {
+      const savedState = localStorage.getItem("tuna_timer_state");
+      if (savedState) {
+        const timerState = JSON.parse(savedState);
+        
+        if (timerState.isActive && timerState.startTime) {
+          const now = Date.now();
+          const elapsed = Math.floor((now - timerState.startTime) / 1000);
+          const remaining = timerState.duration - elapsed;
+          
+          if (remaining > 0) {
+            this.timeLeft = remaining;
+            this.timerStartTime = timerState.startTime;
+            this.timerDuration = timerState.duration;
+            this.isTimerActive = true;
+            this.gameState = timerState.gameState || 'running';
+            this.currentScreen = timerState.currentScreen || 'decision-content';
+            
+            // Restart the timer
+            this.timer = setInterval(() => {
+              this.timeLeft--;
+              this.updateTimerDisplay();
+              this.saveTimerState();
+
+              if (this.timeLeft <= 0) {
+                this.stopTimer();
+                this.showNotification(
+                  "Waktu habis! Kirim keputusan sekarang.",
+                  "warning"
+                );
+              }
+            }, 1000);
+            
+            this.updateTimerDisplay();
+            return true;
+          } else {
+            // Timer has expired, clear the state
+            this.clearTimerState();
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error restoring timer state:", error);
+      this.clearTimerState();
+    }
+    return false;
+  }
+
+  clearTimerState() {
+    localStorage.removeItem("tuna_timer_state");
+  }
+
+  saveGameState() {
+    const gameState = {
+      teamData: this.teamData,
+      currentScenario: this.currentScenario,
+      gameState: this.gameState,
+      currentScreen: this.currentScreen,
+      isGameStarted: this.isGameStarted,
+      currentScenarioPosition: this.currentScenarioPosition
+    };
+    localStorage.setItem("tuna_game_state", JSON.stringify(gameState));
+  }
+
+  restoreGameState() {
+    try {
+      const savedState = localStorage.getItem("tuna_game_state");
+      if (savedState) {
+        const gameState = JSON.parse(savedState);
+        this.teamData = gameState.teamData;
+        this.currentScenario = gameState.currentScenario;
+        this.gameState = gameState.gameState || 'waiting';
+        this.currentScreen = gameState.currentScreen || 'welcome-content';
+        this.isGameStarted = gameState.isGameStarted || false;
+        this.currentScenarioPosition = gameState.currentScenarioPosition || 1;
+        return true;
+      }
+    } catch (error) {
+      console.error("Error restoring game state:", error);
+    }
+    return false;
+  }
+
+  showAppropriateContent() {
+    // Hide all content sections first
+    document.querySelectorAll(".content-section").forEach((section) => {
+      section.classList.remove("active");
+    });
+    
+    // Show the appropriate content based on current state
+    if (this.currentScreen && document.getElementById(this.currentScreen)) {
+      document.getElementById(this.currentScreen).classList.add("active");
+    } else {
+      // Default to welcome content if no specific screen is set
+      document.getElementById("welcome-content").classList.add("active");
+    }
+    
+    // Update game state UI
+    this.updateGameStateUI();
   }
 
   // Utility Methods
