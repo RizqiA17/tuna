@@ -75,6 +75,11 @@ class TunaAdventureGame {
         } else if (gameStateRestored) {
           this.logger.info("Game state restored successfully");
           this.showAppropriateContent();
+        } else {
+          // No state restored, show welcome content by default
+          this.logger.info("No state restored, showing welcome content");
+          this.currentScreen = 'welcome-content';
+          this.showAppropriateContent();
         }
         
         this.logger.info("Game screen shown, UI updated successfully");
@@ -97,6 +102,17 @@ class TunaAdventureGame {
     }
 
     this.setupEventListeners();
+    
+    // Add debug method to global scope for testing
+    window.debugTuna = {
+      showWelcome: () => this.forceShowWelcomeContent(),
+      showAppropriate: () => this.showAppropriateContent(),
+      getState: () => ({
+        currentScreen: this.currentScreen,
+        gameState: this.gameState,
+        isGameStarted: this.isGameStarted
+      })
+    };
     } catch (error) {
       this.logger.error("Initialization failed", { error: error.message, stack: error.stack });
       // Fallback: show login screen
@@ -204,6 +220,9 @@ class TunaAdventureGame {
   showScreen(screenId) {
     console.log(`🎯 Switching to screen: ${screenId}`);
     
+    // Update current screen state
+    this.currentScreen = screenId;
+    
     // Remove active class from all screens and reset display style
     document.querySelectorAll(".screen").forEach((screen) => {
       screen.classList.remove("active");
@@ -224,17 +243,8 @@ class TunaAdventureGame {
       console.error(`  - Target screen not found: ${screenId}`);
     }
 
-    // If showing game screen, make sure welcome content is active by default
-    if (screenId === "game-screen") {
-      document.querySelectorAll(".content-section").forEach((section) => {
-        section.classList.remove("active");
-      });
-      const welcomeContent = document.getElementById("welcome-content");
-      if (welcomeContent) {
-        welcomeContent.classList.add("active");
-        console.log(`  - Set welcome-content as active for game screen`);
-      }
-    }
+    // Note: Content sections are managed by showAppropriateContent()
+    // Don't override content sections here to avoid conflicts
   }
 
   // Explicitly hide login screen
@@ -1097,6 +1107,32 @@ class TunaAdventureGame {
     this.currentScenarioPosition = 1;
     this.currentScreen = 'welcome-content';
     this.currentScenario = null;
+    
+    // Ensure game screen is shown and welcome content is active
+    this.showScreen("game-screen");
+    this.showAppropriateContent();
+    
+    // Force show welcome content as fallback
+    setTimeout(() => {
+      this.forceShowWelcomeContent();
+    }, 100);
+  }
+  
+  forceShowWelcomeContent() {
+    console.log('🔧 Force showing welcome content');
+    // Hide all content sections
+    document.querySelectorAll(".content-section").forEach((section) => {
+      section.classList.remove("active");
+    });
+    
+    // Show welcome content
+    const welcomeElement = document.getElementById("welcome-content");
+    if (welcomeElement) {
+      welcomeElement.classList.add("active");
+      console.log('✅ Welcome content forced to show');
+    } else {
+      console.error('❌ Welcome content element not found');
+    }
   }
 
   saveGameState() {
@@ -1132,17 +1168,32 @@ class TunaAdventureGame {
   }
 
   showAppropriateContent() {
+    console.log('🎯 showAppropriateContent called', {
+      currentScreen: this.currentScreen,
+      gameState: this.gameState,
+      isGameStarted: this.isGameStarted
+    });
+    
     // Hide all content sections first
     document.querySelectorAll(".content-section").forEach((section) => {
       section.classList.remove("active");
+      console.log(`  - Removed active from: ${section.id}`);
     });
     
     // Show the appropriate content based on current state
-    if (this.currentScreen && document.getElementById(this.currentScreen)) {
-      document.getElementById(this.currentScreen).classList.add("active");
+    if (this.currentScreen && this.currentScreen !== 'game-screen' && document.getElementById(this.currentScreen)) {
+      const targetElement = document.getElementById(this.currentScreen);
+      targetElement.classList.add("active");
+      console.log(`  - Added active to: ${this.currentScreen}`);
     } else {
-      // Default to welcome content if no specific screen is set
-      document.getElementById("welcome-content").classList.add("active");
+      // Default to welcome content if no specific screen is set or if currentScreen is game-screen
+      const welcomeElement = document.getElementById("welcome-content");
+      if (welcomeElement) {
+        welcomeElement.classList.add("active");
+        console.log(`  - Added active to welcome-content (default)`);
+      } else {
+        console.error('  - welcome-content element not found!');
+      }
     }
     
     // Update game state UI
