@@ -14,6 +14,7 @@ class TunaAdventureGame {
     this.gameState = 'waiting'; // waiting, running, ended
     this.currentScenarioPosition = 1;
     this.hasJoinedAsTeam = false;
+    this.isKicked = false; // Flag to track if team has been kicked
     this.logger = window.TeamLogger || new Logger('TEAM');
     
     // Timer persistence properties
@@ -625,6 +626,9 @@ class TunaAdventureGame {
         "warning"
       );
       
+      // Set kicked flag to prevent any further actions
+      this.isKicked = true;
+      
       // Reset join flag to prevent reconnection
       this.hasJoinedAsTeam = false;
       
@@ -638,6 +642,13 @@ class TunaAdventureGame {
 
     this.socket.on('reset-game-command', () => {
       console.log('🔄 Received reset game command from admin');
+      
+      // Don't process reset if team has been kicked
+      if (this.isKicked) {
+        console.log('🚫 Team has been kicked, ignoring reset command');
+        return;
+      }
+      
       this.resetGameFromAdmin();
     });
 
@@ -663,6 +674,16 @@ class TunaAdventureGame {
   // Game Logic
   async startGame() {
     console.log("🚀 Starting game...");
+    
+    // Don't allow starting game if team has been kicked
+    if (this.isKicked) {
+      this.showNotification(
+        "Tim Anda telah dikeluarkan dari permainan. Silakan login ulang.",
+        "error"
+      );
+      this.logout();
+      return;
+    }
     
     if (this.isWaitingForAdmin) {
       this.showNotification(
@@ -730,6 +751,13 @@ class TunaAdventureGame {
 
   async startGameFromAdmin() {
     console.log("🎮 Starting game from admin command...");
+    
+    // Don't allow starting game if team has been kicked
+    if (this.isKicked) {
+      console.log("🚫 Team has been kicked, ignoring start game command");
+      return;
+    }
+    
     try {
       const response = await this.apiRequest("/game/start", {
         method: "POST",
@@ -768,6 +796,13 @@ class TunaAdventureGame {
 
   async nextScenarioFromAdmin() {
     console.log("➡️ Moving to next scenario from admin command...");
+    
+    // Don't allow next scenario if team has been kicked
+    if (this.isKicked) {
+      console.log("🚫 Team has been kicked, ignoring next scenario command");
+      return;
+    }
+    
     this.currentScenarioPosition++;
     this.saveGameState();
     this.nextScenario();
@@ -775,6 +810,13 @@ class TunaAdventureGame {
 
   endGameFromAdmin() {
     console.log("🏁 Ending game from admin command...");
+    
+    // Don't allow end game if team has been kicked
+    if (this.isKicked) {
+      console.log("🚫 Team has been kicked, ignoring end game command");
+      return;
+    }
+    
     this.isGameStarted = false;
     this.isWaitingForAdmin = true;
     this.gameState = 'ended';
@@ -1330,8 +1372,20 @@ class TunaAdventureGame {
       isGameStarted: this.isGameStarted,
       currentPosition: this.teamData?.currentPosition,
       hasCurrentScenario: !!this.currentScenario,
-      currentScenario: this.currentScenario
+      currentScenario: this.currentScenario,
+      isKicked: this.isKicked
     });
+    
+    // Don't show any game content if team has been kicked
+    if (this.isKicked) {
+      console.log('🚫 Team has been kicked, not showing game content');
+      this.showNotification(
+        "Tim Anda telah dikeluarkan dari permainan. Silakan login ulang.",
+        "error"
+      );
+      this.logout();
+      return;
+    }
     
     // Hide all content sections first
     document.querySelectorAll(".content-section").forEach((section) => {

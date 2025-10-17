@@ -179,7 +179,11 @@ io.on('connection', (socket) => {
   socket.on('reset-game-all', () => {
     console.log('🔄 Admin resetting game for all teams');
     io.to('admin-room').emit('game-reset');
-    io.emit('reset-game-command');
+    
+    // Only send reset command to connected teams (not kicked teams)
+    connectedTeams.forEach((socketId, teamId) => {
+      io.to(socketId).emit('reset-game-command');
+    });
   });
 
   socket.on('kick-team', (data) => {

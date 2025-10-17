@@ -225,7 +225,11 @@ io.on('connection', (socket) => {
       connectedTeamsCount: connectedTeams.size 
     });
     io.to('admin-room').emit('game-reset');
-    io.emit('reset-game-command');
+    
+    // Only send reset command to connected teams (not kicked teams)
+    connectedTeams.forEach((teamData, teamId) => {
+      io.to(teamData.socketId).emit('reset-game-command');
+    });
   });
 
   socket.on('kick-team', (data) => {
