@@ -141,6 +141,23 @@ io.on('connection', (socket) => {
       allTeamIds: Array.from(connectedTeams.keys())
     });
     
+    // Get team progress from mock data and send to admin
+    const mockTeam = mockTeams.get(teamId);
+    if (mockTeam) {
+      const isCompleted = mockTeam.currentPosition > 7;
+      
+      // Send team progress to admin
+      io.to('admin-room').emit('team-progress-update', {
+        teamId,
+        teamName,
+        currentPosition: mockTeam.currentPosition,
+        totalScore: mockTeam.totalScore,
+        isCompleted
+      });
+      
+      console.log(`📊 Sent team progress for ${teamName}: position ${mockTeam.currentPosition}, score ${mockTeam.totalScore}`);
+    }
+    
     // Notify admins about team connection
     io.to('admin-room').emit('team-connected', { 
       teamId, 

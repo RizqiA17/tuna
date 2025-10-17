@@ -133,7 +133,7 @@ io.on('connection', (socket) => {
   console.log(`🔌 Client connected: ${socket.id}`);
 
   // Team connection
-  socket.on('team-join', (data) => {
+  socket.on('team-join', async (data) => {
     const { teamId, teamName } = data;
     
     // Check if team has been kicked
@@ -147,6 +147,33 @@ io.on('connection', (socket) => {
     socket.teamId = teamId;
     socket.teamName = teamName;
     console.log(`👥 Team ${teamName} (${teamId}) joined`);
+    
+    // Get team progress from database and send to admin
+    try {
+      const { executeQuery } = require('./config/database');
+      const team = await executeQuery(
+        "SELECT current_position, total_score FROM teams WHERE id = ?",
+        [teamId]
+      );
+      
+      if (team.length > 0) {
+        const teamData = team[0];
+        const isCompleted = teamData.current_position > 7;
+        
+        // Send team progress to admin
+        socket.to('admin-room').emit('team-progress-update', {
+          teamId,
+          teamName,
+          currentPosition: teamData.current_position,
+          totalScore: teamData.total_score,
+          isCompleted
+        });
+        
+        console.log(`📊 Sent team progress for ${teamName}: position ${teamData.current_position}, score ${teamData.total_score}`);
+      }
+    } catch (error) {
+      console.error('❌ Error getting team progress:', error);
+    }
     
     // Notify admins about team connection
     socket.to('admin-room').emit('team-connected', { teamId, teamName });

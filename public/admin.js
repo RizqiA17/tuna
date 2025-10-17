@@ -187,6 +187,14 @@ class AdminPanel {
             });
         }
 
+        const refreshTeamsBtn = document.getElementById("refreshTeamsBtn");
+        if (refreshTeamsBtn) {
+            refreshTeamsBtn.addEventListener("click", () => {
+                this.forceCheckCompletedTeams();
+                this.showNotification('Team status refreshed', 'info');
+            });
+        }
+
         // Event delegation for dynamically created buttons
         document.addEventListener("click", (e) => {
             if (e.target.closest(".view-team-btn")) {
@@ -271,6 +279,9 @@ class AdminPanel {
             this.updateConnectedTeamsCount();
             this.updateRealTimeMonitoring();
             this.updateGameControlButtons();
+            
+            // Check which teams have already completed current step
+            this.checkTeamsCompletedCurrentStep();
         });
 
         this.socket.on('team-connected', (data) => {
@@ -280,6 +291,9 @@ class AdminPanel {
             this.updateRealTimeMonitoring();
             this.updateGameControlButtons();
             this.showNotification(`Team ${data.teamName} connected`, 'info');
+            
+            // Check if this team has already completed current step
+            this.checkTeamsCompletedCurrentStep();
         });
 
         this.socket.on('team-disconnected', (data) => {
@@ -403,6 +417,11 @@ class AdminPanel {
             this.saveAdminState();
             this.socket.emit('next-scenario-all');
             this.updateGameControlButtons();
+            
+            // Check completed teams after advancing step
+            setTimeout(() => {
+                this.forceCheckCompletedTeams();
+            }, 1000);
         }
     }
 
@@ -1194,6 +1213,75 @@ class AdminPanel {
 
     clearAdminState() {
         localStorage.removeItem("tuna_admin_state");
+    }
+
+    // Check which teams have already completed current step based on database
+    async checkTeamsCompletedCurrentStep() {
+        if (this.gameState !== 'running' || this.connectedTeams.size === 0) {
+            return;
+        }
+
+        try {
+            console.log(`🔍 Checking completed teams for step ${this.currentStep}`);
+            
+            // Get all teams data to check their progress
+            const response = await this.apiRequest('/admin/teams');
+            if (response.success) {
+                const teamsData = response.data;
+                
+                // Clear current completed teams set
+                this.teamsCompletedCurrentStep.clear();
+                
+                // Check each connected team
+                for (const [teamId, connectedTeam] of this.connectedTeams) {
+                    const teamData = teamsData.find(t => t.id == teamId);
+                    if (teamData) {
+                        // A team is considered completed if they have submitted decisions
+                        // and their current position is greater than the current step
+                        if (teamData.current_position > this.currentStep) {
+                            this.teamsCompletedCurrentStep.add(teamId);
+                            console.log(`✅ Team ${teamData.team_name} already completed step ${this.currentStep} (position: ${teamData.current_position})`);
+                        } else if (teamData.current_position === this.currentStep) {
+                            // Check if team has submitted decision for current step
+                            console.log(`🔍 Team ${teamData.team_name} is at step ${this.currentStep}, checking if they submitted decision`);
+                            const hasSubmitted = await this.checkTeamDecisionForCurrentStep(teamId);
+                            if (hasSubmitted) {
+                                this.teamsCompletedCurrentStep.add(teamId);
+                                console.log(`✅ Team ${teamData.team_name} has submitted decision for step ${this.currentStep}`);
+                            }
+                        }
+                    }
+                }
+                
+                console.log(`📊 Found ${this.teamsCompletedCurrentStep.size} teams already completed step ${this.currentStep}`);
+                this.updateGameControlButtons();
+            }
+        } catch (error) {
+            console.error('❌ Error checking completed teams:', error);
+        }
+    }
+
+    // Force check completed teams (called when admin needs to refresh)
+    async forceCheckCompletedTeams() {
+        console.log('🔄 Force checking completed teams...');
+        await this.checkTeamsCompletedCurrentStep();
+    }
+
+    // Check if team has submitted decision for current step
+    async checkTeamDecisionForCurrentStep(teamId) {
+        try {
+            const response = await this.apiRequest(`/admin/teams/${teamId}`);
+            if (response.success) {
+                const teamData = response.data;
+                const hasDecisionForCurrentStep = teamData.decisions.some(decision => 
+                    decision.position === this.currentStep
+                );
+                return hasDecisionForCurrentStep;
+            }
+        } catch (error) {
+            console.error(`❌ Error checking decision for team ${teamId}:`, error);
+        }
+        return false;
     }
 }
 

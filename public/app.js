@@ -85,6 +85,14 @@ class TunaAdventureGame {
         // Always call showAppropriateContent to display the correct screen
         this.showAppropriateContent();
         
+        // Additional check: if we're in scenario position but don't have scenario, try to load it
+        if (this.teamData && this.teamData.currentPosition > 1 && this.teamData.currentPosition <= 7 && !this.currentScenario) {
+          this.logger.info("Team is in scenario position but no currentScenario found, attempting to load", {
+            currentPosition: this.teamData.currentPosition
+          });
+          await this.loadCurrentScenario();
+        }
+        
         this.logger.info("Game screen shown, UI updated successfully");
       } catch (error) {
         this.logger.error("Token invalid or failed to load team data", { error: error.message, stack: error.stack });
@@ -162,8 +170,13 @@ class TunaAdventureGame {
         this.startDecision();
       });
 
-    document.getElementById("decisionForm").addEventListener("submit", (e) => {
+    document.getElementById("decisionForm").addEventListener("submit", async (e) => {
       e.preventDefault();
+      // Ensure scenario is loaded before submitting
+      if (!this.currentScenario && this.teamData && this.teamData.currentPosition) {
+        console.log("🔄 Loading scenario before submit...");
+        await this.loadCurrentScenario();
+      }
       this.submitDecision();
     });
 
@@ -713,12 +726,12 @@ class TunaAdventureGame {
         // Team is continuing - get current scenario
         const response = await this.apiRequest(`/game/scenario/${this.teamData.currentPosition}`);
         
-        if (response.success) {
-          this.currentScenario = response.data;
-          this.currentScenarioPosition = this.teamData.currentPosition;
-          this.updateScenarioUI();
-          // Clear form fields for new scenario
-          this.clearDecisionForm();
+         if (response.success) {
+           this.currentScenario = response.data;
+           this.currentScenarioPosition = this.teamData.currentPosition;
+           this.updateScenarioUI();
+           // Clear form fields for new scenario
+           this.clearDecisionFormForNewScenario();
 
           // Hide welcome content and show scenario content
           document.getElementById("welcome-content").classList.remove("active");
@@ -739,13 +752,13 @@ class TunaAdventureGame {
         method: "POST",
       });
 
-      if (response.success) {
-        this.currentScenario = response.scenario;
-        this.timeLeft = response.timeLimit;
-        this.currentScenarioPosition = 1;
-        this.updateScenarioUI();
-        // Clear form fields for new scenario
-        this.clearDecisionForm();
+       if (response.success) {
+         this.currentScenario = response.scenario;
+         this.timeLeft = response.timeLimit;
+         this.currentScenarioPosition = 1;
+         this.updateScenarioUI();
+         // Clear form fields for new scenario
+         this.clearDecisionFormForNewScenario();
 
         // Hide welcome content and show scenario content
         document.getElementById("welcome-content").classList.remove("active");
@@ -788,10 +801,10 @@ class TunaAdventureGame {
         this.isWaitingForAdmin = false;
         this.gameState = 'running';
         this.currentScenarioPosition = 1;
-        this.currentScreen = 'scenario-content';
-        this.updateScenarioUI();
-        // Clear form fields for new scenario
-        this.clearDecisionForm();
+         this.currentScreen = 'scenario-content';
+         this.updateScenarioUI();
+         // Clear form fields for new scenario
+         this.clearDecisionFormForNewScenario();
         this.updateGameStateUI();
         this.saveGameState();
 
@@ -929,11 +942,42 @@ class TunaAdventureGame {
   }
 
   async submitDecision() {
+    // Check if currentScenario is available
+    if (!this.currentScenario) {
+      console.warn("⚠️ currentScenario is null, attempting to load scenario before submit");
+      
+      // Try to load scenario before showing error
+      if (this.teamData && this.teamData.currentPosition) {
+        await this.loadCurrentScenario();
+        
+        // Check again after loading
+        if (!this.currentScenario) {
+          this.showNotification("Tidak ada scenario aktif. Silakan refresh halaman atau hubungi admin.", "error");
+          console.error("❌ Cannot submit decision: currentScenario is still null after loading attempt");
+          return;
+        }
+      } else {
+        this.showNotification("Tidak ada scenario aktif. Silakan refresh halaman atau hubungi admin.", "error");
+        console.error("❌ Cannot submit decision: currentScenario is null and no team data");
+        return;
+      }
+    }
+
     const formData = new FormData(document.getElementById("decisionForm"));
+    const decision = formData.get("decision");
+    const reasoning = formData.get("reasoning");
+    
+    // Validate form data
+    if (!decision || !reasoning) {
+      this.showNotification("Silakan isi semua field yang diperlukan (Keputusan dan Alasan).", "error");
+      console.warn("⚠️ Form validation failed:", { decision: !!decision, reasoning: !!reasoning });
+      return;
+    }
+    
     const data = {
       position: this.currentScenario.position,
-      decision: formData.get("decision"),
-      argumentation: formData.get("reasoning"),
+      decision: decision,
+      argumentation: reasoning,
     };
 
     try {
@@ -997,15 +1041,23 @@ class TunaAdventureGame {
     document.getElementById("standardReasoning").textContent =
       result.standardArgumentation;
 
-    // Hide decision content and show results content
-    document.getElementById("decision-content").classList.remove("active");
+    // Hide all content sections first
+    document.querySelectorAll(".content-section").forEach((section) => {
+      section.classList.remove("active");
+      console.log(`  - Removed active from: ${section.id}`);
+    });
+    
+    // Show only results content
     document.getElementById("results-content").classList.add("active");
+    console.log("  - Added active to: results-content");
     
     // Update current screen state
     this.currentScreen = 'results-content';
     this.saveGameState();
 
     this.updateGameUI();
+    
+    console.log("✅ Results displayed, scenario content hidden");
   }
 
   async nextScenario() {
@@ -1028,11 +1080,11 @@ class TunaAdventureGame {
         const nextScenario = this.getScenarioByPosition(
           this.teamData.currentPosition
         );
-        if (nextScenario) {
-          this.currentScenario = nextScenario;
-          this.updateScenarioUI();
-          // Clear form fields for new scenario
-          this.clearDecisionForm();
+         if (nextScenario) {
+           this.currentScenario = nextScenario;
+           this.updateScenarioUI();
+           // Clear form fields for new scenario
+           this.clearDecisionFormForNewScenario();
           document.getElementById("scenario-content").classList.add("active");
           this.currentScreen = 'scenario-content';
           this.saveGameState();
@@ -1132,7 +1184,14 @@ class TunaAdventureGame {
   }
 
   updateScenarioUI() {
-    if (!this.currentScenario) return;
+    if (!this.currentScenario) {
+      console.warn("⚠️ currentScenario is null, attempting to load scenario");
+      // Try to load scenario if we have team data and position
+      if (this.teamData && this.teamData.currentPosition) {
+        this.loadCurrentScenario();
+      }
+      return;
+    }
 
     document.getElementById("scenarioTitle").textContent =
       this.currentScenario.title;
@@ -1140,6 +1199,53 @@ class TunaAdventureGame {
       this.currentScenario.position;
     document.getElementById("scenarioText").textContent =
       this.currentScenario.scenarioText;
+  }
+
+  async loadCurrentScenario() {
+    if (!this.teamData || !this.teamData.currentPosition) {
+      console.error("❌ Cannot load scenario: missing team data or position");
+      return;
+    }
+
+    try {
+      console.log(`🔄 Loading scenario for position ${this.teamData.currentPosition}`);
+      const response = await this.apiRequest(`/game/scenario/${this.teamData.currentPosition}`);
+      
+      if (response.success) {
+        this.currentScenario = response.data;
+        this.currentScenarioPosition = this.teamData.currentPosition;
+        this.gameState = 'running';
+        this.isGameStarted = true;
+        this.isWaitingForAdmin = false;
+        this.currentScreen = 'scenario-content';
+        
+         // Update UI
+         this.updateScenarioUI();
+         
+         // Don't clear form when loading scenario - preserve user input
+         console.log("📝 Preserving user input when loading scenario");
+         
+         this.updateGameUI();
+         
+         // Only call showAppropriateContent if we're not in results screen
+         if (this.currentScreen !== 'results-content') {
+           this.showAppropriateContent();
+         }
+        
+        console.log("✅ Scenario loaded successfully:", this.currentScenario);
+        this.logger.info("Scenario loaded and UI updated", {
+          scenario: this.currentScenario,
+          currentScreen: this.currentScreen,
+          gameState: this.gameState
+        });
+      } else {
+        console.error("❌ Failed to load scenario:", response.message);
+        this.showNotification("Gagal memuat scenario. Silakan refresh halaman.", "error");
+      }
+    } catch (error) {
+      console.error("❌ Error loading scenario:", error);
+      this.showNotification("Error memuat scenario. Silakan refresh halaman.", "error");
+    }
   }
 
   clearDecisionForm() {
@@ -1152,6 +1258,24 @@ class TunaAdventureGame {
     document.getElementById("reasoningCount").textContent = "0";
     
     console.log("🧹 Form fields cleared for new scenario");
+  }
+
+  // Clear form only when starting a new scenario (not when restoring)
+  clearDecisionFormForNewScenario() {
+    this.clearDecisionForm();
+  }
+
+  // Check if form has data
+  hasFormData() {
+    const decision = document.getElementById("decision").value;
+    const reasoning = document.getElementById("reasoning").value;
+    const hasData = decision && reasoning;
+    console.log("🔍 Checking form data:", { 
+      decision: decision ? `${decision.length} chars` : 'empty', 
+      reasoning: reasoning ? `${reasoning.length} chars` : 'empty',
+      hasData: hasData 
+    });
+    return hasData;
   }
 
   updateCompleteUI() {
@@ -1333,7 +1457,9 @@ class TunaAdventureGame {
             this.logger.info("Determining screen based on server state", {
               isGameComplete: serverState.isGameComplete,
               hasCurrentScenario: !!serverState.currentScenario,
-              currentPosition: serverState.currentPosition
+              currentPosition: serverState.currentPosition,
+              serverScenario: serverState.currentScenario,
+              frontendCurrentScenario: this.currentScenario
             });
             
             if (serverState.isGameComplete) {
@@ -1345,16 +1471,19 @@ class TunaAdventureGame {
               this.currentScreen = 'scenario-content';
               this.gameState = 'running';
               this.currentScenarioPosition = serverState.currentPosition;
+              this.isGameStarted = true;
+              this.isWaitingForAdmin = false;
+              
               this.logger.info("Team is in scenario, setting scenario content", {
                 scenario: serverState.currentScenario,
-                currentScreen: this.currentScreen
+                currentScreen: this.currentScreen,
+                position: serverState.currentPosition
               });
               
-              // Update scenario UI immediately
-              this.updateScenarioUI();
-              // Clear form fields for restored scenario
-              this.clearDecisionForm();
-              this.updateGameUI();
+               // Update scenario UI immediately
+               this.updateScenarioUI();
+               // Don't clear form fields for restored scenario - user might have already filled them
+               this.updateGameUI();
             } else if (serverState.currentPosition > 1) {
               // Team has completed scenarios but no current scenario
               // This means they're waiting for admin to advance to next scenario
@@ -1369,6 +1498,30 @@ class TunaAdventureGame {
               this.currentScreen = 'welcome-content';
               this.gameState = 'waiting';
               this.logger.info("Team hasn't started yet, showing welcome content");
+            }
+            
+            // If we're in a scenario position but don't have currentScenario, try to load it
+            if (serverState.currentPosition > 1 && serverState.currentPosition <= 7 && !this.currentScenario) {
+              this.logger.info("Team is in scenario position but no currentScenario, attempting to load", {
+                currentPosition: serverState.currentPosition
+              });
+              await this.loadCurrentScenario();
+            }
+            
+            // Additional check: if we have currentScenario but it's not being displayed properly
+            if (serverState.currentScenario && !this.currentScenario) {
+              this.logger.info("Server provided currentScenario but frontend doesn't have it, loading it", {
+                serverScenario: serverState.currentScenario,
+                currentPosition: serverState.currentPosition
+              });
+              this.currentScenario = serverState.currentScenario;
+              this.currentScreen = 'scenario-content';
+              this.gameState = 'running';
+              this.isGameStarted = true;
+              this.isWaitingForAdmin = false;
+              this.updateScenarioUI();
+              this.updateGameUI();
+              this.showAppropriateContent();
             }
             
             this.logger.info("Game state restored from server", {
@@ -1456,11 +1609,25 @@ class TunaAdventureGame {
       }
       
       // If showing scenario content, make sure scenario UI is updated
-      if (this.currentScreen === 'scenario-content' && this.currentScenario) {
-        console.log('  - Updating scenario UI for restored scenario');
-        this.updateScenarioUI();
-        // Clear form fields for restored scenario
-        this.clearDecisionForm();
+      if (this.currentScreen === 'scenario-content') {
+         if (this.currentScenario) {
+           console.log('  - Updating scenario UI for restored scenario');
+           this.updateScenarioUI();
+           // Don't clear form fields - user might have already filled them
+         } else if (this.teamData && this.teamData.currentPosition) {
+          console.log('🔄 Loading scenario for scenario content display...');
+          this.loadCurrentScenario();
+        }
+      }
+      
+      // If showing results content, make sure only results are visible
+      if (this.currentScreen === 'results-content') {
+        console.log('  - Showing results content only');
+        // Ensure scenario content is hidden when showing results
+        const scenarioContent = document.getElementById('scenario-content');
+        if (scenarioContent) {
+          scenarioContent.classList.remove('active');
+        }
       }
     } else {
       // Default to welcome content if no specific screen is set or if currentScreen is game-screen
