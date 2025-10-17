@@ -12,7 +12,7 @@ class AdminPanel {
         this.realTimeTeams = new Map();
         this.gameState = 'waiting'; // waiting, running, ended
         this.teamsCompletedCurrentStep = new Set();
-        this.currentStep = 1;
+        this.currentStep = 0;
         this.logger = window.AdminLogger || new Logger('ADMIN');
         
         this.init();
@@ -43,6 +43,17 @@ class AdminPanel {
                 }
                 
                 this.showAdminPanel();
+                
+                // Show the restored section immediately (like handleLogin does)
+                if (stateRestored) {
+                    this.showSection(this.currentSection);
+                    console.log(`🔄 Admin section restored: ${this.currentSection}`);
+                    
+                    // Update UI based on restored state
+                    this.updateGameControlButtons();
+                    this.updateGameStatus(this.getGameStatusText(this.gameState));
+                    console.log(`🔄 Admin UI updated with restored state - gameState: ${this.gameState}, step: ${this.currentStep}`);
+                }
             } catch (error) {
                 console.log("Token invalid, showing login screen");
                 this.showLoginScreen();
@@ -235,7 +246,7 @@ class AdminPanel {
             // Update game state from server stats
             if (this.statsData.gameState) {
                 this.gameState = this.statsData.gameState;
-                this.currentStep = this.statsData.currentStep || 1;
+                this.currentStep = this.statsData.currentStep || 0;
             }
 
             // Update UI
@@ -356,6 +367,10 @@ class AdminPanel {
         // Listen for game status updates
         this.socket.on('game-started', () => {
             console.log('🎮 Game started for all teams');
+            this.gameState = 'running';
+            this.currentStep = 1;
+            this.teamsCompletedCurrentStep.clear();
+            this.saveAdminState();
             this.updateGameStatus('Running');
             this.updateGameControlButtons();
             this.showNotification('Game started for all teams', 'success');
@@ -363,6 +378,9 @@ class AdminPanel {
 
         this.socket.on('scenario-advanced', () => {
             console.log('➡️ Scenario advanced for all teams');
+            this.currentStep++;
+            this.teamsCompletedCurrentStep.clear();
+            this.saveAdminState();
             this.updateGameControlButtons();
             this.showNotification('Advanced to next scenario for all teams', 'info');
         });
@@ -376,6 +394,11 @@ class AdminPanel {
 
         this.socket.on('game-reset', () => {
             console.log('🔄 Game reset for all teams');
+            // Reset game state and current step
+            this.gameState = 'waiting';
+            this.currentStep = 0;
+            this.teamsCompletedCurrentStep.clear();
+            this.saveAdminState();
             this.updateGameStatus('Reset Complete');
             this.updateGameControlButtons();
             this.showNotification('Game reset for all teams', 'success');
@@ -386,7 +409,7 @@ class AdminPanel {
             console.log('🔄 Game state update from server:', data);
             const oldGameState = this.gameState;
             this.gameState = data.gameState || 'waiting';
-            this.currentStep = data.currentStep || 1;
+            this.currentStep = data.currentStep || 0;
             this.updateGameStatus(this.getGameStatusText(this.gameState));
             this.updateGameControlButtons();
             
@@ -411,9 +434,9 @@ class AdminPanel {
 
     nextScenarioForAllTeams() {
         if (this.socket) {
-            // Clear completed teams for next step
+            // Don't increment here - will be done in scenario-advanced handler
+            // this.currentStep++;
             this.teamsCompletedCurrentStep.clear();
-            this.currentStep++;
             this.saveAdminState();
             this.socket.emit('next-scenario-all');
             this.updateGameControlButtons();
@@ -1124,9 +1147,11 @@ class AdminPanel {
         document.getElementById("admin-login-screen").style.display = "none";
         document.getElementById("admin-panel-content").style.display = "block";
         
-        // Load data and show overview
+        // Load data
         this.loadData();
-        this.showSection("overview");
+        
+        // Don't force show overview - let the restored section be shown
+        // The restored section will be shown by the init() method
     }
 
     logout() {
@@ -1198,11 +1223,13 @@ class AdminPanel {
             if (savedState) {
                 const adminState = JSON.parse(savedState);
                 this.currentSection = adminState.currentSection || "overview";
-                // Don't restore game state from localStorage - let server provide the current state
-                // The server will send game-state-update event with current state
-                this.gameState = 'waiting'; // Default, will be updated by server
-                this.currentStep = 1; // Default, will be updated by server
-                this.teamsCompletedCurrentStep = new Set(); // Always start fresh
+                
+                // Restore game state from localStorage to maintain UI state
+                this.gameState = adminState.gameState || 'waiting';
+                this.currentStep = adminState.currentStep || 0;
+                this.teamsCompletedCurrentStep = new Set(adminState.teamsCompletedCurrentStep || []);
+                
+                console.log(`🔄 Admin state restored - section: ${this.currentSection}, gameState: ${this.gameState}, step: ${this.currentStep}`);
                 return true;
             }
         } catch (error) {

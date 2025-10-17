@@ -12,7 +12,7 @@ class TunaAdventureGame {
     this.isGameStarted = false;
     this.isWaitingForAdmin = false;
     this.gameState = 'waiting'; // waiting, running, ended
-    this.currentScenarioPosition = 1;
+    this.currentScenarioPosition = 0;
     this.hasJoinedAsTeam = false;
     this.isKicked = false; // Flag to track if team has been kicked
     this.logger = window.TeamLogger || new Logger('TEAM');
@@ -58,39 +58,16 @@ class TunaAdventureGame {
         this.logger.info("Token found, attempting to load team data", { token: this.token.substring(0, 20) + '...' });
         await this.loadTeamData();
         
-        // Try to restore game state first
-        const gameStateRestored = await this.restoreGameState();
-        
         clearTimeout(fallbackTimeout);
         
-        // Always show game screen first
+        // Follow the same pattern as handleLogin() - simple and effective
         this.showScreen("game-screen");
         this.updateGameUI();
         
-        // Try to restore timer state
-        const timerRestored = this.restoreTimerState();
-        
-        // Always show appropriate content based on restored state
-        if (timerRestored) {
-          this.logger.info("Timer state restored successfully");
-        }
+        // Restore game state after basic setup (like handleLogin would do)
+        const gameStateRestored = await this.restoreGameState();
         if (gameStateRestored) {
-          this.logger.info("Game state restored successfully - showing appropriate content");
-        } else {
-          // No state restored, show welcome content by default
-          this.logger.info("No state restored, showing welcome content");
-          this.currentScreen = 'welcome-content';
-        }
-        
-        // Always call showAppropriateContent to display the correct screen
-        this.showAppropriateContent();
-        
-        // Additional check: if we're in scenario position but don't have scenario, try to load it
-        if (this.teamData && this.teamData.currentPosition > 1 && this.teamData.currentPosition <= 7 && !this.currentScenario) {
-          this.logger.info("Team is in scenario position but no currentScenario found, attempting to load", {
-            currentPosition: this.teamData.currentPosition
-          });
-          await this.loadCurrentScenario();
+          this.logger.info("Game state restored successfully");
         }
         
         this.logger.info("Game screen shown, UI updated successfully");
@@ -237,6 +214,10 @@ class TunaAdventureGame {
     console.log(`🎯 Switching to screen: ${screenId}`);
     
     // Update current screen state
+    console.log('🔄 currentScreen changed via showScreen():', {
+      from: this.currentScreen,
+      to: screenId
+    });
     this.currentScreen = screenId;
     
     // Remove active class from all screens and reset display style
@@ -683,18 +664,40 @@ class TunaAdventureGame {
     this.socket.on('game-state-update', (data) => {
       console.log('🔄 Game state update from server:', data);
       const oldGameState = this.gameState;
+      const oldStep = this.currentScenarioPosition;
+      
       this.gameState = data.gameState || 'waiting';
-      this.currentScenarioPosition = data.currentStep || 1;
+      this.currentScenarioPosition = data.currentStep || 0;
+      
+      // IMPORTANT: Update flags based on server state for better synchronization
+      this.isGameStarted = data.isGameRunning || false;
+      this.isWaitingForAdmin = data.isWaiting || false;
       
       // Update UI based on server state
       this.updateGameStateUI();
-      this.showAppropriateContent();
+      
+      // IMPORTANT: If step changed, we need to sync with server state
+      if (oldStep !== this.currentScenarioPosition && this.teamData) {
+        console.log(`🔄 Step changed from ${oldStep} to ${this.currentScenarioPosition}, syncing with server`);
+        this.syncWithServerState();
+      } else {
+        this.showAppropriateContent();
+      }
       
       // Show notification if game state was reset (server restart)
       if (oldGameState !== this.gameState && this.gameState === 'waiting') {
         this.showNotification('Server restarted - Game state reset to waiting', 'info');
         this.clearGameState();
       }
+      
+      // Log enhanced synchronization info
+      this.logger.info("Game state synchronized with server", {
+        gameState: this.gameState,
+        currentStep: this.currentScenarioPosition,
+        isGameStarted: this.isGameStarted,
+        isWaitingForAdmin: this.isWaitingForAdmin,
+        timestamp: data.timestamp
+      });
     });
   }
 
@@ -736,7 +739,15 @@ class TunaAdventureGame {
           // Hide welcome content and show scenario content
           document.getElementById("welcome-content").classList.remove("active");
           document.getElementById("scenario-content").classList.add("active");
-          this.currentScreen = 'scenario-content';
+          console.log('🔄 currentScreen changed to scenario-content (line 742)');
+          console.log('🔄 currentScreen changed to scenario-content (line 769)');
+         console.log('🔄 currentScreen changed to scenario-content (line 807)');
+          console.log('🔄 currentScreen changed to scenario-content (line 1092)');
+          console.log('🔄 currentScreen changed to scenario-content (line 1234)');
+                console.log('🔄 currentScreen changed to scenario-content (line 1528)');
+                console.log('🔄 currentScreen changed to scenario-content (line 1606)');
+              console.log('🔄 currentScreen changed to scenario-content (line 1707)');
+            this.currentScreen = 'scenario-content';
 
           this.showNotification(
             `Lanjutkan ke Pos ${this.teamData.currentPosition}: ${this.currentScenario.title}`,
@@ -755,7 +766,7 @@ class TunaAdventureGame {
        if (response.success) {
          this.currentScenario = response.scenario;
          this.timeLeft = response.timeLimit;
-         this.currentScenarioPosition = 1;
+         this.currentScenarioPosition = response.scenario.position || 0;
          this.updateScenarioUI();
          // Clear form fields for new scenario
          this.clearDecisionFormForNewScenario();
@@ -763,7 +774,14 @@ class TunaAdventureGame {
         // Hide welcome content and show scenario content
         document.getElementById("welcome-content").classList.remove("active");
         document.getElementById("scenario-content").classList.add("active");
-        this.currentScreen = 'scenario-content';
+        console.log('🔄 currentScreen changed to scenario-content (line 769)');
+         console.log('🔄 currentScreen changed to scenario-content (line 807)');
+          console.log('🔄 currentScreen changed to scenario-content (line 1092)');
+          console.log('🔄 currentScreen changed to scenario-content (line 1234)');
+                console.log('🔄 currentScreen changed to scenario-content (line 1528)');
+                console.log('🔄 currentScreen changed to scenario-content (line 1606)');
+              console.log('🔄 currentScreen changed to scenario-content (line 1707)');
+            this.currentScreen = 'scenario-content';
 
         this.showNotification(
           "Petualangan dimulai! Baca scenario dengan teliti.",
@@ -800,8 +818,15 @@ class TunaAdventureGame {
         this.isGameStarted = true;
         this.isWaitingForAdmin = false;
         this.gameState = 'running';
-        this.currentScenarioPosition = 1;
-         this.currentScreen = 'scenario-content';
+        this.currentScenarioPosition = response.scenario.position || 0;
+         console.log('🔄 currentScreen changed to scenario-content (line 769)');
+         console.log('🔄 currentScreen changed to scenario-content (line 807)');
+          console.log('🔄 currentScreen changed to scenario-content (line 1092)');
+          console.log('🔄 currentScreen changed to scenario-content (line 1234)');
+                console.log('🔄 currentScreen changed to scenario-content (line 1528)');
+                console.log('🔄 currentScreen changed to scenario-content (line 1606)');
+              console.log('🔄 currentScreen changed to scenario-content (line 1707)');
+            this.currentScreen = 'scenario-content';
          this.updateScenarioUI();
          // Clear form fields for new scenario
          this.clearDecisionFormForNewScenario();
@@ -873,7 +898,7 @@ class TunaAdventureGame {
     this.isWaitingForAdmin = false;
     this.gameState = 'waiting';
     this.currentScreen = 'welcome-content';
-    this.currentScenarioPosition = 1;
+    this.currentScenarioPosition = 0;
     this.currentScenario = null;
     this.timeLeft = 900;
     this.stopTimer();
@@ -1041,6 +1066,15 @@ class TunaAdventureGame {
     document.getElementById("standardReasoning").textContent =
       result.standardArgumentation;
 
+    // Store results data for persistence
+    this.resultsData = {
+      score: result.score,
+      teamDecision: result.teamDecision,
+      teamReasoning: result.teamArgumentation,
+      standardDecision: result.standardAnswer,
+      standardReasoning: result.standardArgumentation
+    };
+
     // Hide all content sections first
     document.querySelectorAll(".content-section").forEach((section) => {
       section.classList.remove("active");
@@ -1086,7 +1120,15 @@ class TunaAdventureGame {
            // Clear form fields for new scenario
            this.clearDecisionFormForNewScenario();
           document.getElementById("scenario-content").classList.add("active");
-          this.currentScreen = 'scenario-content';
+          console.log('🔄 currentScreen changed to scenario-content (line 742)');
+          console.log('🔄 currentScreen changed to scenario-content (line 769)');
+         console.log('🔄 currentScreen changed to scenario-content (line 807)');
+          console.log('🔄 currentScreen changed to scenario-content (line 1092)');
+          console.log('🔄 currentScreen changed to scenario-content (line 1234)');
+                console.log('🔄 currentScreen changed to scenario-content (line 1528)');
+                console.log('🔄 currentScreen changed to scenario-content (line 1606)');
+              console.log('🔄 currentScreen changed to scenario-content (line 1707)');
+            this.currentScreen = 'scenario-content';
           this.saveGameState();
           this.showNotification(
             `Selamat! Lanjut ke Pos ${this.teamData.currentPosition}: ${nextScenario.title}`,
@@ -1116,6 +1158,12 @@ class TunaAdventureGame {
         section.classList.remove("active");
       });
       document.getElementById("leaderboard-content").classList.add("active");
+      
+      // Update current screen state and save
+      this.currentScreen = 'leaderboard-content';
+      this.saveGameState();
+      
+      console.log("✅ Leaderboard displayed, currentScreen set to leaderboard-content");
     } catch (error) {
       this.showNotification(error.message, "error");
     }
@@ -1127,9 +1175,14 @@ class TunaAdventureGame {
 
     if (this.teamData.currentPosition > 7) {
       document.getElementById("complete-content").classList.add("active");
+      this.currentScreen = 'complete-content';
     } else {
       document.getElementById("results-content").classList.add("active");
+      this.currentScreen = 'results-content';
     }
+    
+    // Save the updated screen state
+    this.saveGameState();
   }
 
   playAgain() {
@@ -1217,7 +1270,14 @@ class TunaAdventureGame {
         this.gameState = 'running';
         this.isGameStarted = true;
         this.isWaitingForAdmin = false;
-        this.currentScreen = 'scenario-content';
+        console.log('🔄 currentScreen changed to scenario-content (line 769)');
+         console.log('🔄 currentScreen changed to scenario-content (line 807)');
+          console.log('🔄 currentScreen changed to scenario-content (line 1092)');
+          console.log('🔄 currentScreen changed to scenario-content (line 1234)');
+                console.log('🔄 currentScreen changed to scenario-content (line 1528)');
+                console.log('🔄 currentScreen changed to scenario-content (line 1606)');
+              console.log('🔄 currentScreen changed to scenario-content (line 1707)');
+            this.currentScreen = 'scenario-content';
         
          // Update UI
          this.updateScenarioUI();
@@ -1309,6 +1369,19 @@ class TunaAdventureGame {
     });
   }
 
+  // New method to load leaderboard data without changing currentScreen
+  async loadLeaderboardData() {
+    try {
+      console.log('🔄 Loading leaderboard data for display');
+      const response = await this.apiRequest("/game/leaderboard");
+      this.updateLeaderboardUI(response.data);
+      console.log('✅ Leaderboard data loaded successfully');
+    } catch (error) {
+      console.error('❌ Error loading leaderboard data:', error);
+      this.showNotification("Gagal memuat data leaderboard", "error");
+    }
+  }
+
   // Timer
   startTimer() {
     this.timeLeft = 900; // 15 minutes
@@ -1397,7 +1470,7 @@ class TunaAdventureGame {
     this.gameState = 'waiting';
     this.isGameStarted = false;
     this.isWaitingForAdmin = true;
-    this.currentScenarioPosition = 1;
+    this.currentScenarioPosition = 0;
     this.currentScreen = 'welcome-content';
     this.currentScenario = null;
     
@@ -1435,7 +1508,8 @@ class TunaAdventureGame {
       gameState: this.gameState,
       currentScreen: this.currentScreen,
       isGameStarted: this.isGameStarted,
-      currentScenarioPosition: this.currentScenarioPosition
+      currentScenarioPosition: this.currentScenarioPosition,
+      resultsData: this.resultsData
     };
     localStorage.setItem("tuna_game_state", JSON.stringify(gameState));
   }
@@ -1462,46 +1536,193 @@ class TunaAdventureGame {
               frontendCurrentScenario: this.currentScenario
             });
             
+            console.log('🔍 Starting restoreGameState conditional checks:', {
+              isGameComplete: serverState.isGameComplete,
+              hasCurrentScenario: !!serverState.currentScenario,
+              currentPosition: serverState.currentPosition,
+              currentScreen: this.currentScreen
+            });
+            
             if (serverState.isGameComplete) {
+              console.log('🔍 Entering isGameComplete block');
               this.currentScreen = 'complete-content';
               this.gameState = 'ended';
             } else if (serverState.currentScenario) {
-              // Team is in the middle of a scenario - show scenario content
-              this.currentScenario = serverState.currentScenario;
-              this.currentScreen = 'scenario-content';
-              this.gameState = 'running';
-              this.currentScenarioPosition = serverState.currentPosition;
-              this.isGameStarted = true;
-              this.isWaitingForAdmin = false;
+              console.log('🔍 Entering hasCurrentScenario block');
+              // Team is in the middle of a scenario - but check if user was viewing results/leaderboard first
+              const savedState = localStorage.getItem("tuna_game_state");
+              let shouldShowScenario = true;
               
-              this.logger.info("Team is in scenario, setting scenario content", {
-                scenario: serverState.currentScenario,
-                currentScreen: this.currentScreen,
-                position: serverState.currentPosition
-              });
+              if (savedState) {
+                try {
+                  const gameState = JSON.parse(savedState);
+                  if (gameState.currentScreen === 'results-content' || gameState.currentScreen === 'leaderboard-content') {
+                    // User was viewing results or leaderboard, prioritize that over scenario
+                    this.currentScreen = gameState.currentScreen;
+                    this.gameState = 'waiting';
+                    this.isWaitingForAdmin = true;
+                    shouldShowScenario = false;
+                    
+                    this.logger.info("User was viewing results/leaderboard, prioritizing that over scenario", {
+                      currentScreen: this.currentScreen,
+                      serverScenario: serverState.currentScenario
+                    });
+                    
+                    // If restoring results-content, we need to load the scenario data and results data
+                    if (this.currentScreen === 'results-content' && gameState.currentScenario) {
+                      this.currentScenario = gameState.currentScenario;
+                      console.log('🔍 Restored scenario for results-content:', this.currentScenario);
+                    }
+                    
+                    // Restore results data if available
+                    if (this.currentScreen === 'results-content' && gameState.resultsData) {
+                      this.resultsData = gameState.resultsData;
+                      console.log('🔍 Restored results data from gameState:', this.resultsData);
+                    } else if (this.currentScreen === 'results-content' && !gameState.resultsData) {
+                      console.log('⚠️ Results screen but no resultsData in gameState!');
+                    }
+                  }
+                } catch (error) {
+                  // Continue with scenario display if localStorage parsing fails
+                }
+              }
               
-               // Update scenario UI immediately
-               this.updateScenarioUI();
-               // Don't clear form fields for restored scenario - user might have already filled them
-               this.updateGameUI();
+              if (shouldShowScenario) {
+                // Team is in the middle of a scenario - show scenario content
+                this.currentScenario = serverState.currentScenario;
+                console.log('🔄 currentScreen changed to scenario-content (line 742)');
+          console.log('🔄 currentScreen changed to scenario-content (line 769)');
+         console.log('🔄 currentScreen changed to scenario-content (line 807)');
+          console.log('🔄 currentScreen changed to scenario-content (line 1092)');
+          console.log('🔄 currentScreen changed to scenario-content (line 1234)');
+                console.log('🔄 currentScreen changed to scenario-content (line 1528)');
+                console.log('🔄 currentScreen changed to scenario-content (line 1606)');
+              console.log('🔄 currentScreen changed to scenario-content (line 1707)');
+            this.currentScreen = 'scenario-content';
+                this.gameState = 'running';
+                this.currentScenarioPosition = serverState.currentPosition;
+                this.isGameStarted = true;
+                this.isWaitingForAdmin = false;
+                
+                this.logger.info("Team is in scenario, setting scenario content", {
+                  scenario: serverState.currentScenario,
+                  currentScreen: this.currentScreen,
+                  position: serverState.currentPosition
+                });
+                
+                 // Update scenario UI immediately
+                 this.updateScenarioUI();
+                 // Don't clear form fields for restored scenario - user might have already filled them
+                 this.updateGameUI();
+              }
             } else if (serverState.currentPosition > 1) {
               // Team has completed scenarios but no current scenario
               // This means they're waiting for admin to advance to next scenario
-              this.currentScreen = 'welcome-content';
+              console.log('🔍 Entering localStorage fallback block:', {
+                serverStateCurrentPosition: serverState.currentPosition,
+                hasCurrentScenario: !!serverState.currentScenario,
+                currentScreen: this.currentScreen
+              });
+              
+              // Check if user was viewing results or leaderboard before refresh
+              const savedState = localStorage.getItem("tuna_game_state");
+              if (savedState) {
+                try {
+                  const gameState = JSON.parse(savedState);
+                  console.log('🔍 Checking gameState.currentScreen:', {
+                    gameStateCurrentScreen: gameState.currentScreen,
+                    isResults: gameState.currentScreen === 'results-content',
+                    isLeaderboard: gameState.currentScreen === 'leaderboard-content',
+                    willEnterBlock: gameState.currentScreen === 'results-content' || gameState.currentScreen === 'leaderboard-content'
+                  });
+                  
+                  if (gameState.currentScreen === 'results-content' || gameState.currentScreen === 'leaderboard-content') {
+                    // User was viewing results or leaderboard, restore that screen
+                    this.currentScreen = gameState.currentScreen;
+                    this.logger.info("Restoring user's previous screen", {
+                      currentScreen: this.currentScreen,
+                      currentPosition: serverState.currentPosition
+                    });
+                    
+                    // If restoring results-content, we need to load the scenario data and results data
+                    if (this.currentScreen === 'results-content' && gameState.currentScenario) {
+                      this.currentScenario = gameState.currentScenario;
+                      this.logger.info("Restored scenario data for results display", {
+                        scenario: this.currentScenario
+                      });
+                    }
+                    
+                    // Restore results data if available
+                    if (this.currentScreen === 'results-content' && gameState.resultsData) {
+                      this.resultsData = gameState.resultsData;
+                      console.log('🔍 Restored results data from server state:', this.resultsData);
+                      this.logger.info("Restored results data for display", {
+                        resultsData: this.resultsData
+                      });
+                    }
+                    
+                    // If no results data from server state, try localStorage
+                    console.log('🔍 Checking resultsData restoration:', {
+                      currentScreen: this.currentScreen,
+                      hasResultsData: !!this.resultsData,
+                      resultsData: this.resultsData
+                    });
+                    
+                    if (this.currentScreen === 'results-content' && !this.resultsData) {
+                      console.log('🔍 No results data from server state, trying localStorage...');
+                      const savedState = localStorage.getItem("tuna_game_state");
+                      if (savedState) {
+                        const localGameState = JSON.parse(savedState);
+                        console.log('🔍 localStorage gameState:', {
+                          hasResultsData: !!localGameState.resultsData,
+                          resultsData: localGameState.resultsData
+                        });
+                        if (localGameState.resultsData) {
+                          this.resultsData = localGameState.resultsData;
+                          console.log('🔍 Restored results data from localStorage:', this.resultsData);
+                        }
+                      } else {
+                        console.log('🔍 No saved state found in localStorage');
+                      }
+                    } else {
+                      console.log('🔍 Skipping localStorage fallback:', {
+                        currentScreen: this.currentScreen,
+                        hasResultsData: !!this.resultsData
+                      });
+                    }
+                    
+                  } else {
+                    this.currentScreen = 'welcome-content';
+                  }
+                } catch (error) {
+                  this.currentScreen = 'welcome-content';
+                }
+              } else {
+                this.currentScreen = 'welcome-content';
+              }
+              
               this.gameState = 'waiting';
               this.isWaitingForAdmin = true;
-              this.logger.info("Team waiting for admin, showing welcome content", {
-                currentPosition: serverState.currentPosition
+              this.logger.info("Team waiting for admin, showing appropriate content", {
+                currentPosition: serverState.currentPosition,
+                currentScreen: this.currentScreen
               });
             } else {
               // Team hasn't started yet
+              console.log('🔍 Entering else block (team hasn\'t started):', {
+                serverStateCurrentPosition: serverState.currentPosition,
+                hasCurrentScenario: !!serverState.currentScenario,
+                currentScreen: this.currentScreen
+              });
               this.currentScreen = 'welcome-content';
               this.gameState = 'waiting';
               this.logger.info("Team hasn't started yet, showing welcome content");
             }
             
             // If we're in a scenario position but don't have currentScenario, try to load it
-            if (serverState.currentPosition > 1 && serverState.currentPosition <= 7 && !this.currentScenario) {
+            // BUT NOT if user is viewing results or leaderboard
+            if (serverState.currentPosition > 1 && serverState.currentPosition <= 7 && !this.currentScenario && 
+                this.currentScreen !== 'results-content' && this.currentScreen !== 'leaderboard-content') {
               this.logger.info("Team is in scenario position but no currentScenario, attempting to load", {
                 currentPosition: serverState.currentPosition
               });
@@ -1509,12 +1730,24 @@ class TunaAdventureGame {
             }
             
             // Additional check: if we have currentScenario but it's not being displayed properly
-            if (serverState.currentScenario && !this.currentScenario) {
+            // BUT NOT if user is viewing results or leaderboard
+            if (serverState.currentScenario && !this.currentScenario && 
+                this.currentScreen !== 'results-content' && this.currentScreen !== 'leaderboard-content') {
               this.logger.info("Server provided currentScenario but frontend doesn't have it, loading it", {
                 serverScenario: serverState.currentScenario,
                 currentPosition: serverState.currentPosition
               });
               this.currentScenario = serverState.currentScenario;
+              console.log('🔄 currentScreen changed to scenario-content (line 742)');
+          console.log('🔄 currentScreen changed to scenario-content (line 769)');
+         console.log('🔄 currentScreen changed to scenario-content (line 807)');
+          console.log('🔄 currentScreen changed to scenario-content (line 1092)');
+          console.log('🔄 currentScreen changed to scenario-content (line 1234)');
+                console.log('🔄 currentScreen changed to scenario-content (line 1528)');
+                console.log('🔄 currentScreen changed to scenario-content (line 1606)');
+              console.log('🔄 currentScreen changed to scenario-content (line 1707)');
+            // DON'T change currentScreen if user is viewing results or leaderboard
+            if (this.currentScreen !== 'results-content' && this.currentScreen !== 'leaderboard-content') {
               this.currentScreen = 'scenario-content';
               this.gameState = 'running';
               this.isGameStarted = true;
@@ -1522,6 +1755,7 @@ class TunaAdventureGame {
               this.updateScenarioUI();
               this.updateGameUI();
               this.showAppropriateContent();
+            }
             }
             
             this.logger.info("Game state restored from server", {
@@ -1531,6 +1765,9 @@ class TunaAdventureGame {
               currentScenario: serverState.currentScenario,
               currentScreen: this.currentScreen
             });
+            
+            // Show appropriate content immediately (like handleLogin does)
+            this.showAppropriateContent();
             
             return true;
           }
@@ -1550,12 +1787,17 @@ class TunaAdventureGame {
           this.currentScenario = gameState.currentScenario;
           this.gameState = gameState.gameState || 'waiting';
           this.currentScreen = gameState.currentScreen || 'welcome-content';
-          this.currentScenarioPosition = gameState.currentScenarioPosition || 1;
+          this.currentScenarioPosition = gameState.currentScenarioPosition || 0;
+          this.resultsData = gameState.resultsData;
+          console.log('🔍 Restored results data from localStorage:', this.resultsData);
           
           this.logger.info("Game state restored from localStorage", {
             currentPosition: this.teamData.currentPosition,
             currentScreen: this.currentScreen
           });
+          
+          // Show appropriate content immediately (like handleLogin does)
+          this.showAppropriateContent();
           
           return true;
         } else {
@@ -1569,6 +1811,95 @@ class TunaAdventureGame {
     return false;
   }
 
+  // IMPORTANT: New method to sync with server state when step changes
+  async syncWithServerState() {
+    try {
+      console.log('🔄 syncWithServerState called - BEFORE:', {
+        currentScreen: this.currentScreen,
+        currentStep: this.currentScenarioPosition,
+        teamPosition: this.teamData?.currentPosition
+      });
+      
+      this.logger.info("Syncing with server state", {
+        currentStep: this.currentScenarioPosition,
+        teamPosition: this.teamData?.currentPosition
+      });
+      
+      // Get fresh data from server
+      const response = await this.apiRequest("/game/status");
+      if (response.success) {
+        const serverState = response.data;
+        
+        // Update team data with latest server state
+        this.teamData.currentPosition = serverState.currentPosition;
+        this.teamData.totalScore = serverState.totalScore;
+        
+        // Clear current scenario if we're not in a scenario
+        if (!serverState.currentScenario) {
+          this.currentScenario = null;
+          this.isGameStarted = false;
+          this.isWaitingForAdmin = true;
+          this.currentScreen = 'welcome-content';
+          this.logger.info("No current scenario, showing welcome content");
+        } else {
+          // We have a current scenario
+          this.currentScenario = serverState.currentScenario;
+          // Don't override currentScreen if user was viewing results or leaderboard
+          console.log('🔍 syncWithServerState - checking currentScreen override:', {
+            currentScreen: this.currentScreen,
+            willOverride: this.currentScreen !== 'results-content' && this.currentScreen !== 'leaderboard-content'
+          });
+          
+          if (this.currentScreen !== 'results-content' && this.currentScreen !== 'leaderboard-content') {
+            console.log('⚠️ syncWithServerState - OVERRIDING currentScreen to scenario-content');
+            console.log('🔄 currentScreen changed to scenario-content (line 742)');
+          console.log('🔄 currentScreen changed to scenario-content (line 769)');
+         console.log('🔄 currentScreen changed to scenario-content (line 807)');
+          console.log('🔄 currentScreen changed to scenario-content (line 1092)');
+          console.log('🔄 currentScreen changed to scenario-content (line 1234)');
+                console.log('🔄 currentScreen changed to scenario-content (line 1528)');
+                console.log('🔄 currentScreen changed to scenario-content (line 1606)');
+              console.log('🔄 currentScreen changed to scenario-content (line 1707)');
+            this.currentScreen = 'scenario-content';
+          } else {
+            console.log('✅ syncWithServerState - KEEPING currentScreen:', this.currentScreen);
+          }
+          this.gameState = 'running';
+          this.isGameStarted = true;
+          this.isWaitingForAdmin = false;
+          
+          // Don't update scenario UI if user is viewing results or leaderboard
+          if (this.currentScreen !== 'results-content' && this.currentScreen !== 'leaderboard-content') {
+            this.updateScenarioUI();
+          }
+          
+          this.logger.info("Current scenario found, showing scenario content", {
+            scenario: serverState.currentScenario.title,
+            position: serverState.currentPosition
+          });
+        }
+        
+        // Update UI
+        this.updateGameUI();
+        
+        console.log('🔄 syncWithServerState - AFTER all changes:', {
+          currentScreen: this.currentScreen,
+          currentScenario: this.currentScenario?.title
+        });
+        
+        this.showAppropriateContent();
+        
+        this.logger.info("Successfully synced with server state", {
+          currentPosition: serverState.currentPosition,
+          hasCurrentScenario: !!serverState.currentScenario,
+          currentScreen: this.currentScreen
+        });
+      }
+    } catch (error) {
+      this.logger.error("Failed to sync with server state", { error: error.message });
+    }
+  }
+
   showAppropriateContent() {
     console.log('🎯 showAppropriateContent called', {
       currentScreen: this.currentScreen,
@@ -1578,6 +1909,12 @@ class TunaAdventureGame {
       hasCurrentScenario: !!this.currentScenario,
       currentScenario: this.currentScenario,
       isKicked: this.isKicked
+    });
+    
+    // DEBUG: Check DOM state before making changes
+    console.log('🔍 DOM State BEFORE showAppropriateContent:');
+    document.querySelectorAll('.content-section').forEach(el => {
+      console.log(`  ${el.id}: ${el.classList.contains('active') ? 'ACTIVE' : 'HIDDEN'}`);
     });
     
     // Don't show any game content if team has been kicked (unless reset)
@@ -1602,6 +1939,12 @@ class TunaAdventureGame {
       const targetElement = document.getElementById(this.currentScreen);
       targetElement.classList.add("active");
       console.log(`  - Added active to: ${this.currentScreen}`);
+      
+      // DEBUG: Check DOM state after adding active class
+      console.log('🔍 DOM State AFTER adding active class:');
+      document.querySelectorAll('.content-section').forEach(el => {
+        console.log(`  ${el.id}: ${el.classList.contains('active') ? 'ACTIVE' : 'HIDDEN'}`);
+      });
       
       // If showing welcome content and team has progress, update the welcome message
       if (this.currentScreen === 'welcome-content' && this.teamData && this.teamData.currentPosition > 1) {
@@ -1628,6 +1971,69 @@ class TunaAdventureGame {
         if (scenarioContent) {
           scenarioContent.classList.remove('active');
         }
+        
+        // Restore results data if available
+        console.log('🔍 Checking resultsData in showAppropriateContent:', {
+          hasResultsData: !!this.resultsData,
+          resultsData: this.resultsData,
+          currentScreen: this.currentScreen
+        });
+        
+        if (this.resultsData) {
+          console.log('  - Restoring results data for display', this.resultsData);
+          
+          // Use setTimeout to ensure DOM is ready
+          setTimeout(() => {
+            // Check if DOM elements exist
+            const scenarioScore = document.getElementById("scenarioScore");
+            const teamDecision = document.getElementById("teamDecision");
+            const teamReasoning = document.getElementById("teamReasoning");
+            const standardDecision = document.getElementById("standardDecision");
+            const standardReasoning = document.getElementById("standardReasoning");
+            
+            console.log('  - DOM elements check (after timeout):', {
+              scenarioScore: !!scenarioScore,
+              teamDecision: !!teamDecision,
+              teamReasoning: !!teamReasoning,
+              standardDecision: !!standardDecision,
+              standardReasoning: !!standardReasoning
+            });
+            
+            if (scenarioScore) scenarioScore.textContent = this.resultsData.score;
+            if (teamDecision) teamDecision.textContent = this.resultsData.teamDecision;
+            if (teamReasoning) teamReasoning.textContent = this.resultsData.teamReasoning;
+            if (standardDecision) standardDecision.textContent = this.resultsData.standardDecision;
+            if (standardReasoning) standardReasoning.textContent = this.resultsData.standardReasoning;
+            
+            console.log('  - Results data restored successfully');
+          }, 100);
+        } else {
+          console.log('  - No results data available to restore');
+        }
+      }
+      
+      // If showing leaderboard content, make sure only leaderboard is visible
+      if (this.currentScreen === 'leaderboard-content') {
+        console.log('  - Showing leaderboard content only');
+        // Ensure scenario content is hidden when showing leaderboard
+        const scenarioContent = document.getElementById('scenario-content');
+        if (scenarioContent) {
+          scenarioContent.classList.remove('active');
+        }
+        
+        // DEBUG: Check DOM state after hiding scenario content
+        console.log('🔍 DOM State AFTER hiding scenario content:');
+        document.querySelectorAll('.content-section').forEach(el => {
+          console.log(`  ${el.id}: ${el.classList.contains('active') ? 'ACTIVE' : 'HIDDEN'}`);
+        });
+        
+        // Load leaderboard data if not already loaded
+        if (this.teamData) {
+          console.log('  - Loading leaderboard data for display');
+          // Don't call showLeaderboard() here as it will override currentScreen
+          // Instead, just load the data and update UI
+          this.loadLeaderboardData();
+        }
       }
     } else {
       // Default to welcome content if no specific screen is set or if currentScreen is game-screen
@@ -1647,6 +2053,18 @@ class TunaAdventureGame {
     
     // Update game state UI
     this.updateGameStateUI();
+    
+    // DEBUG: Final DOM state check
+    console.log('🔍 FINAL DOM State:');
+    document.querySelectorAll('.content-section').forEach(el => {
+      console.log(`  ${el.id}: ${el.classList.contains('active') ? 'ACTIVE' : 'HIDDEN'}`);
+    });
+    
+    // DEBUG: Check scenario DOM elements
+    console.log('🔍 Scenario DOM Elements:');
+    console.log(`  scenarioTitle: "${document.getElementById('scenarioTitle')?.textContent}"`);
+    console.log(`  scenarioPosition: "${document.getElementById('scenarioPosition')?.textContent}"`);
+    console.log(`  scenarioText: "${document.getElementById('scenarioText')?.textContent?.substring(0, 50)}..."`);
   }
 
   updateWelcomeContentForProgress() {

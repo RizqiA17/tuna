@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Leaderboard - Tuna Adventure</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .debug-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .debug-section {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid var(--border-color);
+        }
+        .debug-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .debug-button:hover {
+            background: var(--primary-hover);
+        }
+        .debug-result {
+            background: var(--success-color);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .debug-error {
+            background: var(--error-color);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .debug-info {
+            background: var(--info-color);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .debug-warning {
+            background: var(--warning-color);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .status-display {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .code-block {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-container">
+        <h1>🐛 Debug Leaderboard Issue</h1>
+        
+        <div class="debug-section">
+            <h2>📊 Masalah yang Dilaporkan</h2>
+            <div class="debug-warning">
+                <h3>User melaporkan:</h3>
+                <p>Ketika user refresh browser saat melihat leaderboard, yang muncul adalah tampilan soal, bukan leaderboard.</p>
+                <p><strong>Data sebelum reload:</strong></p>
+                <div class="code-block">currentScreen = "leaderboard-content"
+currentScenario = {position: 1, title: "Hutan Kabut", ...}
+currentPosition = 2</div>
+                <p><strong>Data setelah reload:</strong></p>
+                <div class="code-block">currentScreen = "leaderboard-content" (sama)
+currentScenario = {position: 1, title: "Hutan Kabut", ...} (sama)
+currentPosition = 2 (sama)</div>
+                <p><strong>Yang dilihat user:</strong> Tampilan soal "Hutan Kabut", bukan leaderboard</p>
+            </div>
+        </div>
+        
+        <div class="debug-section">
+            <h2>🔍 Analisis Kemungkinan Masalah</h2>
+            <div class="debug-info">
+                <h3>Kemungkinan 1: DOM Elements Scenario Ter-update</h3>
+                <p>Meskipun currentScreen = "leaderboard-content", DOM elements untuk scenario (scenarioTitle, scenarioPosition, scenarioText) masih ter-update dengan data scenario.</p>
+                <p><strong>Penyebab:</strong> Method `updateScenarioUI()` dipanggil tanpa conditional check.</p>
+                <p><strong>Status:</strong> ✅ Sudah diperbaiki dengan conditional check di `syncWithServerState()`</p>
+            </div>
+            
+            <div class="debug-info">
+                <h3>Kemungkinan 2: Scenario Content Masih Memiliki Class "active"</h3>
+                <p>Element scenario-content masih memiliki class "active" meskipun seharusnya hanya leaderboard-content yang active.</p>
+                <p><strong>Penyebab:</strong> Logic di `showAppropriateContent()` tidak bekerja dengan benar.</p>
+                <p><strong>Status:</strong> ❓ Perlu diverifikasi dengan console browser</p>
+            </div>
+            
+            <div class="debug-info">
+                <h3>Kemungkinan 3: Progress Labels Dikira Sebagai Scenario Title</h3>
+                <p>User melihat "Hutan Kabut" dari progress labels (line 160-166 di index.html) yang SELALU VISIBLE, bukan dari scenarioTitle.</p>
+                <p><strong>Penyebab:</strong> Progress labels berada di luar content-section dan selalu ditampilkan.</p>
+                <p><strong>Status:</strong> ❓ Perlu konfirmasi dengan user apakah yang dilihat adalah progress label atau scenario content</p>
+            </div>
+        </div>
+        
+        <div class="debug-section">
+            <h2>🧪 Instruksi Debug untuk User</h2>
+            <div class="debug-warning">
+                <h3>Step 1: Buka User Interface</h3>
+                <ol>
+                    <li>Buka user interface di tab baru</li>
+                    <li>Login sebagai team dan mulai game</li>
+                    <li>Answer scenario question dan submit</li>
+                    <li>Click "Lihat Peringkat" untuk view leaderboard</li>
+                    <li>Verify you see leaderboard screen</li>
+                </ol>
+            </div>
+            
+            <div class="debug-warning">
+                <h3>Step 2: Buka Console Browser (F12)</h3>
+                <p>Sebelum refresh, buka Console browser (tekan F12, pilih tab Console)</p>
+            </div>
+            
+            <div class="debug-warning">
+                <h3>Step 3: Check DOM State Sebelum Refresh</h3>
+                <p>Jalankan command berikut di Console:</p>
+                <div class="code-block">// Check which content-section has class "active"
+document.querySelectorAll('.content-section').forEach(el => {
+  console.log(el.id, el.classList.contains('active') ? 'ACTIVE' : 'HIDDEN');
+});
+
+// Check scenario DOM elements
+console.log('scenarioTitle:', document.getElementById('scenarioTitle').textContent);
+console.log('scenarioPosition:', document.getElementById('scenarioPosition').textContent);
+console.log('scenarioText:', document.getElementById('scenarioText').textContent.substring(0, 50));</div>
+            </div>
+            
+            <div class="debug-warning">
+                <h3>Step 4: Refresh Browser</h3>
+                <p>Refresh halaman (F5)</p>
+            </div>
+            
+            <div class="debug-warning">
+                <h3>Step 5: Check DOM State Setelah Refresh</h3>
+                <p>Setelah refresh selesai, jalankan command yang sama di Console:</p>
+                <div class="code-block">// Check which content-section has class "active"
+document.querySelectorAll('.content-section').forEach(el => {
+  console.log(el.id, el.classList.contains('active') ? 'ACTIVE' : 'HIDDEN');
+});
+
+// Check scenario DOM elements
+console.log('scenarioTitle:', document.getElementById('scenarioTitle').textContent);
+console.log('scenarioPosition:', document.getElementById('scenarioPosition').textContent);
+console.log('scenarioText:', document.getElementById('scenarioText').textContent.substring(0, 50));</div>
+            </div>
+            
+            <div class="debug-warning">
+                <h3>Step 6: Check localStorage</h3>
+                <p>Check localStorage untuk memastikan state tersimpan dengan benar:</p>
+                <div class="code-block">// Check localStorage
+const gameState = localStorage.getItem('tuna_game_state');
+console.log('gameState:', JSON.parse(gameState));</div>
+            </div>
+        </div>
+        
+        <div class="debug-section">
+            <h2>📝 Yang Perlu Dilaporkan User</h2>
+            <div class="debug-info">
+                <h3>Tolong screenshot atau copy-paste hasil dari:</h3>
+                <ol>
+                    <li>Output console sebelum refresh (Step 3)</li>
+                    <li>Output console setelah refresh (Step 5)</li>
+                    <li>Output localStorage (Step 6)</li>
+                    <li>Screenshot tampilan yang dilihat user setelah refresh</li>
+                </ol>
+                <p><strong>Dengan data ini, saya bisa mengidentifikasi masalah yang SEBENARNYA terjadi!</strong></p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

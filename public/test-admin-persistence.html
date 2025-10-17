@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Admin Persistence - Tuna Adventure</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid var(--border-color);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .test-result {
+            background: var(--success-color);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .test-error {
+            background: var(--error-color);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .test-info {
+            background: var(--info-color);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .status-display {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .step-instructions {
+            background: var(--warning-color);
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Test Admin Panel Persistence</h1>
+        
+        <div class="test-section">
+            <h2>📊 Current Admin State</h2>
+            <div id="currentState" class="status-display">
+                Loading...
+            </div>
+            <button class="test-button" onclick="refreshState()">🔄 Refresh State</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔧 Admin Panel Test</h2>
+            <p>Test admin panel state persistence after refresh:</p>
+            <button class="test-button" onclick="openAdminPanel()">🔗 Open Admin Panel</button>
+            <button class="test-button" onclick="testAdminPersistence()">🧪 Test Admin Persistence</button>
+            <div id="adminTestResults"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📝 Step-by-Step Test Instructions</h2>
+            <div class="step-instructions">
+                <h3>Step 1: Open Admin Panel</h3>
+                <p>Click "Open Admin Panel" button to open admin interface in a new tab.</p>
+            </div>
+            
+            <div class="step-instructions">
+                <h3>Step 2: Login to Admin</h3>
+                <p>Login with admin credentials (username: admin, password: admin123).</p>
+            </div>
+            
+            <div class="step-instructions">
+                <h3>Step 3: Navigate to Game Control</h3>
+                <p>Click on "Game Control" section in the admin panel navigation.</p>
+            </div>
+            
+            <div class="step-instructions">
+                <h3>Step 4: Refresh the Page</h3>
+                <p>Press F5 or click the refresh button to refresh the admin panel page.</p>
+            </div>
+            
+            <div class="step-instructions">
+                <h3>Step 5: Verify Persistence</h3>
+                <p>Check if you're still in the "Game Control" section after refresh.</p>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔍 Debug Information</h2>
+            <p>Use this section to debug admin state persistence:</p>
+            <button class="test-button" onclick="checkAdminState()">🔍 Check Admin State</button>
+            <button class="test-button" onclick="simulateAdminRefresh()">🔄 Simulate Admin Refresh</button>
+            <button class="test-button" onclick="clearAdminState()">🗑️ Clear Admin State</button>
+            <div id="debugResults"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📋 Expected Results</h2>
+            <ul>
+                <li>✅ Admin panel should remember the last visited section</li>
+                <li>✅ After refresh, admin should stay in the same section</li>
+                <li>✅ Game Control section should remain active after refresh</li>
+                <li>✅ All admin functionality should work normally</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Test functions
+        function refreshState() {
+            const stateDisplay = document.getElementById('currentState');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            // Get current admin state from localStorage
+            const adminState = localStorage.getItem('tuna_admin_state');
+            const token = localStorage.getItem('tuna_token');
+            
+            stateDisplay.innerHTML = `
+                <strong>Admin State at ${timestamp}:</strong><br>
+                <strong>Token:</strong> ${token ? 'Present' : 'Not found'}<br>
+                <strong>Admin State:</strong> ${adminState ? 'Present' : 'Not found'}<br>
+                <strong>Admin State Details:</strong><br>
+                <pre>${adminState ? JSON.stringify(JSON.parse(adminState), null, 2) : 'N/A'}</pre>
+            `;
+        }
+        
+        function openAdminPanel() {
+            window.open('/admin.html', '_blank');
+        }
+        
+        function testAdminPersistence() {
+            const results = document.getElementById('adminTestResults');
+            results.innerHTML = '<div class="test-info">Testing admin persistence...</div>';
+            
+            // Check if admin state exists
+            const adminState = localStorage.getItem('tuna_admin_state');
+            if (adminState) {
+                const parsed = JSON.parse(adminState);
+                results.innerHTML = `
+                    <div class="test-result">✅ Admin state found!</div>
+                    <div class="test-info">
+                        <strong>Current Section:</strong> ${parsed.currentSection || 'overview'}<br>
+                        <strong>Game State:</strong> ${parsed.gameState || 'waiting'}<br>
+                        <strong>Current Step:</strong> ${parsed.currentStep || 1}
+                    </div>
+                    <div class="test-info">
+                        <strong>Test:</strong> Open admin panel, navigate to a section, then refresh the page.
+                        You should stay in the same section.
+                    </div>
+                `;
+            } else {
+                results.innerHTML = '<div class="test-error">❌ No admin state found. Please login to admin panel first.</div>';
+            }
+        }
+        
+        function checkAdminState() {
+            const results = document.getElementById('debugResults');
+            const adminState = localStorage.getItem('tuna_admin_state');
+            const token = localStorage.getItem('tuna_token');
+            
+            if (adminState) {
+                const parsed = JSON.parse(adminState);
+                results.innerHTML = `
+                    <div class="test-result">✅ Admin state found!</div>
+                    <div class="test-info">
+                        <strong>Current Section:</strong> ${parsed.currentSection || 'overview'}<br>
+                        <strong>Game State:</strong> ${parsed.gameState || 'waiting'}<br>
+                        <strong>Current Step:</strong> ${parsed.currentStep || 1}<br>
+                        <strong>Teams Completed:</strong> ${parsed.teamsCompletedCurrentStep ? parsed.teamsCompletedCurrentStep.length : 0}
+                    </div>
+                `;
+            } else {
+                results.innerHTML = '<div class="test-error">❌ No admin state found.</div>';
+            }
+        }
+        
+        function simulateAdminRefresh() {
+            const results = document.getElementById('debugResults');
+            results.innerHTML = '<div class="test-info">Simulating admin refresh...</div>';
+            
+            // Simulate refresh by clearing and restoring state
+            const adminState = localStorage.getItem('tuna_admin_state');
+            if (adminState) {
+                // Clear state
+                localStorage.removeItem('tuna_admin_state');
+                
+                // Restore state after a short delay
+                setTimeout(() => {
+                    localStorage.setItem('tuna_admin_state', adminState);
+                    results.innerHTML = `
+                        <div class="test-result">✅ Admin refresh simulated!</div>
+                        <div class="test-info">State has been cleared and restored. Check if the admin panel shows the correct section.</div>
+                    `;
+                }, 1000);
+            } else {
+                results.innerHTML = '<div class="test-error">❌ No admin state to simulate refresh with.</div>';
+            }
+        }
+        
+        function clearAdminState() {
+            const results = document.getElementById('debugResults');
+            localStorage.removeItem('tuna_admin_state');
+            results.innerHTML = '<div class="test-info">🗑️ Admin state cleared. You will need to login again.</div>';
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshState();
+            
+            // Auto-refresh state every 5 seconds
+            setInterval(refreshState, 5000);
+        });
+    </script>
+</body>
+</html>

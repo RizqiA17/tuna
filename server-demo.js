@@ -175,11 +175,16 @@ io.on('connection', (socket) => {
     });
     io.to('admin-room').emit('connected-teams', teams);
     
-    // Send current game state to team
+    // Send current game state to team with enhanced information
     socket.emit('game-state-update', {
       gameState,
       currentStep,
-      connectedTeamsCount: connectedTeams.size
+      connectedTeamsCount: connectedTeams.size,
+      // IMPORTANT: Add more context for better synchronization
+      isGameRunning: gameState === 'running',
+      isGameEnded: gameState === 'ended',
+      isWaiting: gameState === 'waiting',
+      timestamp: new Date().toISOString()
     });
   });
 
@@ -202,11 +207,16 @@ io.on('connection', (socket) => {
     });
     socket.emit('connected-teams', teams);
     
-    // Send current game state to admin
+    // Send current game state to admin with enhanced information
     socket.emit('game-state-update', {
       gameState,
       currentStep,
-      connectedTeamsCount: connectedTeams.size
+      connectedTeamsCount: connectedTeams.size,
+      // IMPORTANT: Add more context for better synchronization
+      isGameRunning: gameState === 'running',
+      isGameEnded: gameState === 'ended',
+      isWaiting: gameState === 'waiting',
+      timestamp: new Date().toISOString()
     });
   });
 
@@ -1126,6 +1136,43 @@ app.get("/admin", (req, res) => {
 // Log viewer route
 app.get("/logs", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "log-viewer.html"));
+});
+
+// Test state persistence route
+app.get("/test-state-persistence", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "test-state-persistence.html"));
+});
+
+app.get("/test-admin-persistence", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "test-admin-persistence.html"));
+});
+
+app.get("/test-admin-game-control", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "test-admin-game-control.html"));
+});
+
+app.get("/test-user-results-persistence", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "test-user-results-persistence.html"));
+});
+
+app.get("/test-user-refresh-fix", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "test-user-refresh-fix.html"));
+});
+
+app.get("/test-leaderboard-fix", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "test-leaderboard-fix.html"));
+});
+
+app.get("/test-leaderboard-fix-v2", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "test-leaderboard-fix-v2.html"));
+});
+
+app.get("/test-leaderboard-fix-v3", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "test-leaderboard-fix-v3.html"));
+});
+
+app.get("/test-leaderboard-debug", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "test-leaderboard-debug.html"));
 });
 
 // Log statistics API

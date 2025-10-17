@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test State Persistence - Tuna Adventure</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid var(--border-color);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .test-result {
+            background: var(--success-color);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .test-error {
+            background: var(--error-color);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .test-info {
+            background: var(--info-color);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .status-display {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Test State Persistence & Synchronization</h1>
+        
+        <div class="test-section">
+            <h2>📊 Current State</h2>
+            <div id="currentState" class="status-display">
+                Loading...
+            </div>
+            <button class="test-button" onclick="refreshState()">🔄 Refresh State</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔧 Admin Panel Tests</h2>
+            <p>Test admin panel state persistence after refresh:</p>
+            <button class="test-button" onclick="testAdminPersistence()">🧪 Test Admin Persistence</button>
+            <button class="test-button" onclick="openAdminPanel()">🔗 Open Admin Panel</button>
+            <div id="adminTestResults"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎮 User Interface Tests</h2>
+            <p>Test user state persistence and synchronization:</p>
+            <button class="test-button" onclick="testUserPersistence()">🧪 Test User Persistence</button>
+            <button class="test-button" onclick="openUserInterface()">🔗 Open User Interface</button>
+            <button class="test-button" onclick="simulateUserRefresh()">🔄 Simulate User Refresh</button>
+            <div id="userTestResults"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔄 Synchronization Tests</h2>
+            <p>Test real-time synchronization between admin and users:</p>
+            <button class="test-button" onclick="testSynchronization()">🧪 Test Synchronization</button>
+            <button class="test-button" onclick="simulateStepChange()">📈 Simulate Step Change</button>
+            <div id="syncTestResults"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📝 Test Instructions</h2>
+            <ol>
+                <li><strong>Admin Panel Test:</strong>
+                    <ul>
+                        <li>Click "Open Admin Panel" to open admin interface</li>
+                        <li>Login and navigate to "Game Control" section</li>
+                        <li>Refresh the admin page (F5)</li>
+                        <li>Verify you're still in "Game Control" section</li>
+                    </ul>
+                </li>
+                <li><strong>User Interface Test:</strong>
+                    <ul>
+                        <li>Click "Open User Interface" to open game interface</li>
+                        <li>Login as a team and start a game</li>
+                        <li>Navigate to a scenario/question</li>
+                        <li>Refresh the page (F5)</li>
+                        <li>Verify you're still in the scenario/question</li>
+                    </ul>
+                </li>
+                <li><strong>Synchronization Test:</strong>
+                    <ul>
+                        <li>Open both admin and user interfaces</li>
+                        <li>In admin, advance the game step</li>
+                        <li>In user interface, refresh the page</li>
+                        <li>Verify user is synchronized with the new step</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Test functions
+        function refreshState() {
+            const stateDisplay = document.getElementById('currentState');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            // Get current state from localStorage
+            const adminState = localStorage.getItem('tuna_admin_state');
+            const gameState = localStorage.getItem('tuna_game_state');
+            const token = localStorage.getItem('tuna_token');
+            
+            stateDisplay.innerHTML = `
+                <strong>State at ${timestamp}:</strong><br>
+                <strong>Admin State:</strong> ${adminState ? 'Present' : 'Not found'}<br>
+                <strong>Game State:</strong> ${gameState ? 'Present' : 'Not found'}<br>
+                <strong>Token:</strong> ${token ? 'Present' : 'Not found'}<br>
+                <strong>Admin State Details:</strong><br>
+                <pre>${adminState ? JSON.stringify(JSON.parse(adminState), null, 2) : 'N/A'}</pre>
+                <strong>Game State Details:</strong><br>
+                <pre>${gameState ? JSON.stringify(JSON.parse(gameState), null, 2) : 'N/A'}</pre>
+            `;
+        }
+        
+        function testAdminPersistence() {
+            const results = document.getElementById('adminTestResults');
+            results.innerHTML = '<div class="test-info">Testing admin persistence...</div>';
+            
+            // Check if admin state exists
+            const adminState = localStorage.getItem('tuna_admin_state');
+            if (adminState) {
+                const parsed = JSON.parse(adminState);
+                results.innerHTML = `
+                    <div class="test-result">✅ Admin state found!</div>
+                    <div class="test-info">
+                        <strong>Current Section:</strong> ${parsed.currentSection || 'overview'}<br>
+                        <strong>Game State:</strong> ${parsed.gameState || 'waiting'}<br>
+                        <strong>Current Step:</strong> ${parsed.currentStep || 1}
+                    </div>
+                `;
+            } else {
+                results.innerHTML = '<div class="test-error">❌ No admin state found. Please login to admin panel first.</div>';
+            }
+        }
+        
+        function testUserPersistence() {
+            const results = document.getElementById('userTestResults');
+            results.innerHTML = '<div class="test-info">Testing user persistence...</div>';
+            
+            // Check if game state exists
+            const gameState = localStorage.getItem('tuna_game_state');
+            if (gameState) {
+                const parsed = JSON.parse(gameState);
+                results.innerHTML = `
+                    <div class="test-result">✅ Game state found!</div>
+                    <div class="test-info">
+                        <strong>Current Screen:</strong> ${parsed.currentScreen || 'welcome-content'}<br>
+                        <strong>Game State:</strong> ${parsed.gameState || 'waiting'}<br>
+                        <strong>Is Game Started:</strong> ${parsed.isGameStarted || false}<br>
+                        <strong>Current Position:</strong> ${parsed.teamData?.currentPosition || 1}
+                    </div>
+                `;
+            } else {
+                results.innerHTML = '<div class="test-error">❌ No game state found. Please login to game interface first.</div>';
+            }
+        }
+        
+        function testSynchronization() {
+            const results = document.getElementById('syncTestResults');
+            results.innerHTML = '<div class="test-info">Testing synchronization...</div>';
+            
+            // Check both states
+            const adminState = localStorage.getItem('tuna_admin_state');
+            const gameState = localStorage.getItem('tuna_game_state');
+            
+            if (adminState && gameState) {
+                const admin = JSON.parse(adminState);
+                const game = JSON.parse(gameState);
+                
+                results.innerHTML = `
+                    <div class="test-result">✅ Both states found!</div>
+                    <div class="test-info">
+                        <strong>Admin Step:</strong> ${admin.currentStep || 1}<br>
+                        <strong>User Position:</strong> ${game.teamData?.currentPosition || 1}<br>
+                        <strong>Sync Status:</strong> ${(admin.currentStep || 1) === (game.teamData?.currentPosition || 1) ? '✅ Synchronized' : '⚠️ Out of sync'}
+                    </div>
+                `;
+            } else {
+                results.innerHTML = '<div class="test-error">❌ Missing states. Please login to both interfaces first.</div>';
+            }
+        }
+        
+        function openAdminPanel() {
+            window.open('/admin.html', '_blank');
+        }
+        
+        function openUserInterface() {
+            window.open('/index.html', '_blank');
+        }
+        
+        function simulateUserRefresh() {
+            const results = document.getElementById('userTestResults');
+            results.innerHTML = '<div class="test-info">Simulating user refresh...</div>';
+            
+            // Simulate refresh by clearing and restoring state
+            const gameState = localStorage.getItem('tuna_game_state');
+            if (gameState) {
+                // Clear state
+                localStorage.removeItem('tuna_game_state');
+                
+                // Restore state after a short delay
+                setTimeout(() => {
+                    localStorage.setItem('tuna_game_state', gameState);
+                    results.innerHTML = `
+                        <div class="test-result">✅ User refresh simulated!</div>
+                        <div class="test-info">State has been cleared and restored. Check if the user interface shows the correct content.</div>
+                    `;
+                }, 1000);
+            } else {
+                results.innerHTML = '<div class="test-error">❌ No game state to simulate refresh with.</div>';
+            }
+        }
+        
+        function simulateStepChange() {
+            const results = document.getElementById('syncTestResults');
+            results.innerHTML = '<div class="test-info">Simulating step change...</div>';
+            
+            // Simulate admin advancing step
+            const adminState = localStorage.getItem('tuna_admin_state');
+            if (adminState) {
+                const parsed = JSON.parse(adminState);
+                parsed.currentStep = (parsed.currentStep || 1) + 1;
+                parsed.gameState = 'running';
+                localStorage.setItem('tuna_admin_state', JSON.stringify(parsed));
+                
+                results.innerHTML = `
+                    <div class="test-result">✅ Step change simulated!</div>
+                    <div class="test-info">Admin step advanced to ${parsed.currentStep}. Check if user interface synchronizes with the new step.</div>
+                `;
+            } else {
+                results.innerHTML = '<div class="test-error">❌ No admin state to simulate step change with.</div>';
+            }
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshState();
+            
+            // Auto-refresh state every 5 seconds
+            setInterval(refreshState, 5000);
+        });
+    </script>
+</body>
+</html>

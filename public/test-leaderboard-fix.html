@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Leaderboard Fix - Tuna Adventure</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid var(--border-color);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .test-result {
+            background: var(--success-color);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .test-error {
+            background: var(--error-color);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .test-info {
+            background: var(--info-color);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .status-display {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .step-instructions {
+            background: var(--warning-color);
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .expected-results {
+            background: var(--success-color);
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        .comparison-table th,
+        .comparison-table td {
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            text-align: left;
+        }
+        .comparison-table th {
+            background: var(--primary-color);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Test Leaderboard Fix</h1>
+        
+        <div class="test-section">
+            <h2>📊 Current User Game State</h2>
+            <div id="currentState" class="status-display">
+                Loading...
+            </div>
+            <button class="test-button" onclick="refreshState()">🔄 Refresh State</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔧 Leaderboard Fix Test</h2>
+            <p>Test leaderboard persistence after refresh:</p>
+            <button class="test-button" onclick="openUserInterface()">🔗 Open User Interface</button>
+            <button class="test-button" onclick="testLeaderboardFix()">🧪 Test Leaderboard Fix</button>
+            <div id="testResults"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📝 Step-by-Step Test Instructions</h2>
+            <div class="step-instructions">
+                <h3>Test: Leaderboard Persistence</h3>
+                <ol>
+                    <li>Open user interface in a new tab</li>
+                    <li>Login as a team and start a game</li>
+                    <li>Answer a scenario question and submit</li>
+                    <li>Click "Lihat Peringkat" to view leaderboard</li>
+                    <li>Verify you see the leaderboard screen with team rankings</li>
+                    <li>Refresh the page (F5)</li>
+                    <li>✅ Verify you're still on the leaderboard screen (not the next scenario)</li>
+                    <li>✅ Verify the leaderboard data is still loaded and displayed</li>
+                </ol>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔍 Problem Analysis</h2>
+            <h3>Root Cause:</h3>
+            <p>The issue was in the <code>showAppropriateContent()</code> method. Unlike <code>results-content</code>, there was no specific handling for <code>leaderboard-content</code> in the method. This meant that when the leaderboard screen was restored, it wasn't properly displayed and the leaderboard data wasn't loaded.</p>
+            
+            <h3>Key Differences:</h3>
+            <ul>
+                <li><strong>Results Content:</strong> Had specific handling in <code>showAppropriateContent()</code></li>
+                <li><strong>Leaderboard Content:</strong> Had NO specific handling in <code>showAppropriateContent()</code></li>
+                <li><strong>Results Content:</strong> Data was already loaded when screen was set</li>
+                <li><strong>Leaderboard Content:</strong> Data needed to be loaded when screen was displayed</li>
+            </ul>
+        </div>
+        
+        <div class="test-section">
+            <h2>📋 Expected Results</h2>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Scenario</th>
+                        <th>Before Fix</th>
+                        <th>After Fix</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>User viewing leaderboard, then refresh</td>
+                        <td>❌ Shows next scenario (title only)</td>
+                        <td>✅ Shows leaderboard screen with data</td>
+                    </tr>
+                    <tr>
+                        <td>Leaderboard data loading</td>
+                        <td>❌ Data not loaded after refresh</td>
+                        <td>✅ Data loaded automatically</td>
+                    </tr>
+                    <tr>
+                        <td>Screen persistence</td>
+                        <td>❌ Screen reverts to scenario</td>
+                        <td>✅ Screen stays on leaderboard</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔍 Debug Information</h2>
+            <p>Use this section to debug the leaderboard fix:</p>
+            <button class="test-button" onclick="checkUserState()">🔍 Check User State</button>
+            <button class="test-button" onclick="simulateUserRefresh()">🔄 Simulate User Refresh</button>
+            <button class="test-button" onclick="clearUserState()">🗑️ Clear User State</button>
+            <div id="debugResults"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🐛 Technical Details</h2>
+            <div class="test-info">
+                <h3>Code Changes Made:</h3>
+                <ol>
+                    <li><strong>Added Leaderboard Handling:</strong> Added specific handling for <code>leaderboard-content</code> in <code>showAppropriateContent()</code></li>
+                    <li><strong>Data Loading:</strong> Added automatic leaderboard data loading when screen is restored</li>
+                    <li><strong>Screen Isolation:</strong> Ensured scenario content is hidden when showing leaderboard</li>
+                    <li><strong>Logging:</strong> Added detailed logging for debugging</li>
+                </ol>
+            </div>
+            
+            <div class="test-info">
+                <h3>Key Methods Modified:</h3>
+                <ul>
+                    <li><code>showAppropriateContent()</code> - Added leaderboard handling</li>
+                    <li><code>showLeaderboard()</code> - Already had state saving (from previous fix)</li>
+                    <li><code>hideLeaderboard()</code> - Already had state saving (from previous fix)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Test functions
+        function refreshState() {
+            const stateDisplay = document.getElementById('currentState');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            // Get current user state from localStorage
+            const gameState = localStorage.getItem('tuna_game_state');
+            const token = localStorage.getItem('tuna_token');
+            
+            stateDisplay.innerHTML = `
+                <strong>User Game State at ${timestamp}:</strong><br>
+                <strong>Token:</strong> ${token ? 'Present' : 'Not found'}<br>
+                <strong>Game State:</strong> ${gameState ? 'Present' : 'Not found'}<br>
+                <strong>Game State Details:</strong><br>
+                <pre>${gameState ? JSON.stringify(JSON.parse(gameState), null, 2) : 'N/A'}</pre>
+            `;
+        }
+        
+        function openUserInterface() {
+            window.open('/index.html', '_blank');
+        }
+        
+        function testLeaderboardFix() {
+            const results = document.getElementById('testResults');
+            results.innerHTML = '<div class="test-info">Testing leaderboard fix...</div>';
+            
+            // Check if game state exists
+            const gameState = localStorage.getItem('tuna_game_state');
+            if (gameState) {
+                const parsed = JSON.parse(gameState);
+                results.innerHTML = `
+                    <div class="test-result">✅ Game state found!</div>
+                    <div class="test-info">
+                        <strong>Current Screen:</strong> ${parsed.currentScreen || 'welcome-content'}<br>
+                        <strong>Game State:</strong> ${parsed.gameState || 'waiting'}<br>
+                        <strong>Is Game Started:</strong> ${parsed.isGameStarted || false}<br>
+                        <strong>Current Position:</strong> ${parsed.teamData?.currentPosition || 1}
+                    </div>
+                    <div class="test-info">
+                        <strong>Test:</strong> The fix should now properly restore leaderboard screen and load data after refresh.
+                    </div>
+                `;
+            } else {
+                results.innerHTML = '<div class="test-error">❌ No game state found. Please login to game interface first.</div>';
+            }
+        }
+        
+        function checkUserState() {
+            const results = document.getElementById('debugResults');
+            const gameState = localStorage.getItem('tuna_game_state');
+            const token = localStorage.getItem('tuna_token');
+            
+            if (gameState) {
+                const parsed = JSON.parse(gameState);
+                results.innerHTML = `
+                    <div class="test-result">✅ User state found!</div>
+                    <div class="test-info">
+                        <strong>Current Screen:</strong> ${parsed.currentScreen || 'welcome-content'}<br>
+                        <strong>Game State:</strong> ${parsed.gameState || 'waiting'}<br>
+                        <strong>Is Game Started:</strong> ${parsed.isGameStarted || false}<br>
+                        <strong>Current Position:</strong> ${parsed.teamData?.currentPosition || 1}<br>
+                        <strong>Has Current Scenario:</strong> ${parsed.currentScenario ? 'Yes' : 'No'}
+                    </div>
+                    <div class="test-info">
+                        <strong>Expected Screen:</strong> ${parsed.currentScreen === 'leaderboard-content' ? 'Leaderboard Screen' : 
+                                                      parsed.currentScreen === 'results-content' ? 'Results Screen' : 
+                                                      'Welcome/Scenario Screen'}
+                    </div>
+                `;
+            } else {
+                results.innerHTML = '<div class="test-error">❌ No user state found.</div>';
+            }
+        }
+        
+        function simulateUserRefresh() {
+            const results = document.getElementById('debugResults');
+            results.innerHTML = '<div class="test-info">Simulating user refresh...</div>';
+            
+            // Simulate refresh by clearing and restoring state
+            const gameState = localStorage.getItem('tuna_game_state');
+            if (gameState) {
+                // Clear state
+                localStorage.removeItem('tuna_game_state');
+                
+                // Restore state after a short delay
+                setTimeout(() => {
+                    localStorage.setItem('tuna_game_state', gameState);
+                    results.innerHTML = `
+                        <div class="test-result">✅ User refresh simulated!</div>
+                        <div class="test-info">State has been cleared and restored. The fix should now properly restore the leaderboard screen and load data.</div>
+                    `;
+                }, 1000);
+            } else {
+                results.innerHTML = '<div class="test-error">❌ No user state to simulate refresh with.</div>';
+            }
+        }
+        
+        function clearUserState() {
+            const results = document.getElementById('debugResults');
+            localStorage.removeItem('tuna_game_state');
+            results.innerHTML = '<div class="test-info">🗑️ User state cleared. You will need to login again.</div>';
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshState();
+            
+            // Auto-refresh state every 5 seconds
+            setInterval(refreshState, 5000);
+        });
+    </script>
+</body>
+</html>
