@@ -1085,6 +1085,15 @@ class TunaAdventureGame {
   }
 
   logout() {
+    // Notify server about logout if team is connected
+    if (this.socket && this.teamData) {
+      const teamId = this.teamData.teamId || this.teamData.id;
+      if (teamId) {
+        console.log('🚪 Notifying server about team logout:', teamId);
+        this.socket.emit('team-logout', { teamId });
+      }
+    }
+
     this.token = null;
     localStorage.removeItem("tuna_token");
     this.teamData = null;

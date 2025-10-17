@@ -283,6 +283,31 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Team logout
+  socket.on('team-logout', (data) => {
+    const { teamId } = data;
+    const teamName = socket.teamName || 'Unknown';
+    
+    if (connectedTeams.has(teamId)) {
+      // Remove team from connected teams
+      connectedTeams.delete(teamId);
+      
+      // Notify admins about team logout
+      io.to('admin-room').emit('team-disconnected', {
+        teamId: teamId,
+        teamName: teamName,
+        reason: 'logout'
+      });
+      
+      serverLogger.team('logout', teamId, teamName, {
+        socketId: socket.id,
+        connectedTeamsCount: connectedTeams.size
+      });
+      
+      console.log(`🚪 Team ${teamName} (${teamId}) logged out and removed from connected teams`);
+    }
+  });
+
   // Team progress updates
   socket.on('team-progress', (data) => {
     const { teamId, currentPosition, totalScore, isCompleted } = data;

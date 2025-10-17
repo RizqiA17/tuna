@@ -289,7 +289,13 @@ class AdminPanel {
             this.updateConnectedTeamsCount();
             this.updateRealTimeMonitoring();
             this.updateGameControlButtons();
-            this.showNotification(`Team ${data.teamName} disconnected`, 'warning');
+            
+            // Different notification based on reason
+            const reason = data.reason || 'disconnected';
+            const message = reason === 'logout' ? 
+                `Team ${data.teamName} logged out` : 
+                `Team ${data.teamName} disconnected`;
+            this.showNotification(message, 'warning');
         });
 
         // Listen for team progress updates
@@ -513,15 +519,21 @@ class AdminPanel {
 
         if (nextBtn) {
             if (this.gameState === 'running') {
-                // Check if all teams completed current step
-                const allTeamsCompleted = this.connectedTeams.size > 0 && 
+                // Check if all CONNECTED teams completed current step
+                // If no teams are connected, allow admin to proceed
+                const allConnectedTeamsCompleted = this.connectedTeams.size === 0 || 
                     this.teamsCompletedCurrentStep.size >= this.connectedTeams.size;
                 
                 nextBtn.style.display = 'block';
-                nextBtn.disabled = !allTeamsCompleted;
-                nextBtn.textContent = allTeamsCompleted ? 
-                    '➡️ Lanjut ke Step Berikutnya' : 
-                    `⏳ Menunggu Tim (${this.teamsCompletedCurrentStep.size}/${this.connectedTeams.size})`;
+                nextBtn.disabled = !allConnectedTeamsCompleted;
+                
+                if (this.connectedTeams.size === 0) {
+                    nextBtn.textContent = '➡️ Lanjut ke Step Berikutnya (Tidak ada tim yang terhubung)';
+                } else {
+                    nextBtn.textContent = allConnectedTeamsCompleted ? 
+                        '➡️ Lanjut ke Step Berikutnya' : 
+                        `⏳ Menunggu Tim (${this.teamsCompletedCurrentStep.size}/${this.connectedTeams.size})`;
+                }
                 
                 console.log(`🎯 Step completion: ${this.teamsCompletedCurrentStep.size}/${this.connectedTeams.size} teams completed`);
             } else {
@@ -569,6 +581,7 @@ class AdminPanel {
                         <span class="stat ${isCompleted ? 'completed' : 'active'}">
                             ${isCompleted ? 'Completed' : 'Active'}
                         </span>
+                        <span class="stat connected">🟢 Connected</span>
                     </div>
                 </div>
                 <div class="team-actions">
@@ -579,6 +592,21 @@ class AdminPanel {
             `;
             container.appendChild(teamCard);
         });
+        
+        // Show message if no teams are connected
+        if (this.connectedTeams.size === 0) {
+            const noTeamsCard = document.createElement('div');
+            noTeamsCard.className = 'team-monitoring-card no-teams';
+            noTeamsCard.innerHTML = `
+                <div class="team-info">
+                    <h4>⚠️ Tidak ada tim yang terhubung</h4>
+                    <div class="team-stats">
+                        <span class="stat">Semua tim telah logout atau disconnect</span>
+                    </div>
+                </div>
+            `;
+            container.appendChild(noTeamsCard);
+        }
     }
 
     async apiRequest(endpoint, options = {}) {

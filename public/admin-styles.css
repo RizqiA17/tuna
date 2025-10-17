@@ -2012,9 +2012,37 @@ html, body {
     color: #0c5460;
 }
 
+.team-stats .stat.connected {
+    background: #d4edda;
+    color: #155724;
+}
+
 .team-actions {
     display: flex;
     gap: 0.5rem;
+}
+
+/* No Teams Message */
+.team-monitoring-card.no-teams {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+    border: 2px dashed #ffc107;
+    text-align: center;
+    padding: 2rem;
+}
+
+.team-monitoring-card.no-teams h4 {
+    color: #856404;
+    margin-bottom: 0.5rem;
+}
+
+.team-monitoring-card.no-teams .team-stats {
+    justify-content: center;
+}
+
+.team-monitoring-card.no-teams .team-stats .stat {
+    background: rgba(255, 193, 7, 0.2);
+    color: #856404;
+    font-weight: 500;
 }
 
 /* Responsive Game Control */
