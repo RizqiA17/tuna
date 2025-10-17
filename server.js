@@ -186,9 +186,22 @@ io.on('connection', (socket) => {
     const { teamId } = data;
     const teamSocketId = connectedTeams.get(teamId);
     if (teamSocketId) {
+      // Get team name before deleting
+      const teamName = io.sockets.sockets.get(teamSocketId)?.teamName || 'Unknown';
+      
+      // Send kick notification to team
       io.to(teamSocketId).emit('team-kicked');
+      
+      // Remove team from connected teams
       connectedTeams.delete(teamId);
-      console.log(`👢 Team ${teamId} kicked from game`);
+      
+      // Notify admins about team kick
+      io.to('admin-room').emit('team-disconnected', {
+        teamId: teamId,
+        teamName: teamName
+      });
+      
+      console.log(`👢 Team ${teamName} (${teamId}) kicked from game`);
     }
   });
 

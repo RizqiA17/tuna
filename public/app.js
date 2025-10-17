@@ -578,10 +578,9 @@ class TunaAdventureGame {
     // Reconnect team if socket reconnects
     this.socket.on('reconnect', () => {
       console.log('🔌 Reconnected to server');
-      // Reset join flag to allow re-joining after reconnection
-      this.hasJoinedAsTeam = false;
       
-      if (this.teamData) {
+      // Only reconnect if team hasn't been kicked
+      if (this.teamData && !this.hasJoinedAsTeam) {
         this.socket.emit('team-join', {
           teamId: this.teamData.id,
           teamName: this.teamData.teamName
@@ -625,6 +624,15 @@ class TunaAdventureGame {
         "Tim Anda telah dikeluarkan dari permainan oleh admin.",
         "warning"
       );
+      
+      // Reset join flag to prevent reconnection
+      this.hasJoinedAsTeam = false;
+      
+      // Clear all game state
+      this.clearGameState();
+      localStorage.removeItem("tuna_game_state");
+      localStorage.removeItem("tuna_timer_state");
+      
       this.logout();
     });
 

@@ -230,11 +230,28 @@ io.on('connection', (socket) => {
 
   socket.on('kick-team', (data) => {
     const { teamId } = data;
-    const teamSocketId = connectedTeams.get(teamId);
-    if (teamSocketId) {
-      io.to(teamSocketId).emit('team-kicked');
+    const teamData = connectedTeams.get(teamId);
+    if (teamData) {
+      const teamName = teamData.teamName || 'Unknown';
+      
+      // Send kick notification to team
+      io.to(teamData.socketId).emit('team-kicked');
+      
+      // Remove team from connected teams
       connectedTeams.delete(teamId);
-      console.log(`👢 Team ${teamId} kicked from game`);
+      
+      // Notify admins about team kick
+      io.to('admin-room').emit('team-disconnected', {
+        teamId: teamId,
+        teamName: teamName
+      });
+      
+      serverLogger.team('kicked', teamId, teamName, {
+        adminSocketId: socket.id,
+        connectedTeamsCount: connectedTeams.size
+      });
+      
+      console.log(`👢 Team ${teamName} (${teamId}) kicked from game`);
     }
   });
 

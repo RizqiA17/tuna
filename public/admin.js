@@ -456,9 +456,14 @@ class AdminPanel {
     }
 
     kickTeam(teamId) {
-        if (this.socket && confirm('Are you sure you want to kick this team?')) {
+        if (this.socket && confirm('Are you sure you want to kick this team? This will remove them from the game and they will need to rejoin.')) {
             this.socket.emit('kick-team', { teamId });
             this.showNotification('Team kicked from game', 'warning');
+            
+            // Remove team from connected teams immediately
+            this.connectedTeams.delete(teamId);
+            this.updateConnectedTeamsCount();
+            this.updateRealTimeMonitoring();
         }
     }
 
