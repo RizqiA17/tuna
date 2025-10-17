@@ -370,6 +370,15 @@ class TunaAdventureGame {
       password: formData.get("password"),
     };
 
+    // Don't allow login if team has been kicked
+    if (this.isKicked) {
+      this.showNotification(
+        "Tim Anda telah dikeluarkan dari permainan. Anda tidak dapat masuk kembali.",
+        "error"
+      );
+      return;
+    }
+
     try {
       const response = await this.apiRequest("/auth/login", {
         method: "POST",
@@ -622,8 +631,8 @@ class TunaAdventureGame {
     this.socket.on('team-kicked', () => {
       console.log('👢 Team has been kicked by admin');
       this.showNotification(
-        "Tim Anda telah dikeluarkan dari permainan oleh admin.",
-        "warning"
+        "Tim Anda telah dikeluarkan dari permainan oleh admin. Anda tidak dapat masuk kembali.",
+        "error"
       );
       
       // Set kicked flag to prevent any further actions
@@ -636,6 +645,11 @@ class TunaAdventureGame {
       this.clearGameState();
       localStorage.removeItem("tuna_game_state");
       localStorage.removeItem("tuna_timer_state");
+      
+      // Disconnect from WebSocket to prevent reconnection
+      if (this.socket) {
+        this.socket.disconnect();
+      }
       
       this.logout();
     });

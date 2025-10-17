@@ -127,6 +127,7 @@ app.use((req, res) => {
 // WebSocket connection handling
 const connectedTeams = new Map(); // teamId -> socketId
 const connectedAdmins = new Set(); // socketId
+const kickedTeams = new Set(); // teamId -> Set of kicked team IDs
 
 io.on('connection', (socket) => {
   console.log(`🔌 Client connected: ${socket.id}`);
@@ -134,6 +135,14 @@ io.on('connection', (socket) => {
   // Team connection
   socket.on('team-join', (data) => {
     const { teamId, teamName } = data;
+    
+    // Check if team has been kicked
+    if (kickedTeams.has(teamId)) {
+      console.log(`🚫 Team ${teamName} (${teamId}) tried to join but was previously kicked`);
+      socket.emit('team-kicked');
+      return;
+    }
+    
     connectedTeams.set(teamId, socket.id);
     socket.teamId = teamId;
     socket.teamName = teamName;
@@ -186,12 +195,24 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('unban-team', (data) => {
+    const { teamId } = data;
+    if (kickedTeams.has(teamId)) {
+      kickedTeams.delete(teamId);
+      console.log(`✅ Team ${teamId} unbanned and can rejoin`);
+      io.to('admin-room').emit('team-unbanned', { teamId });
+    }
+  });
+
   socket.on('kick-team', (data) => {
     const { teamId } = data;
     const teamSocketId = connectedTeams.get(teamId);
     if (teamSocketId) {
       // Get team name before deleting
       const teamName = io.sockets.sockets.get(teamSocketId)?.teamName || 'Unknown';
+      
+      // Add team to kicked teams blacklist
+      kickedTeams.add(teamId);
       
       // Send kick notification to team
       io.to(teamSocketId).emit('team-kicked');
@@ -205,7 +226,7 @@ io.on('connection', (socket) => {
         teamName: teamName
       });
       
-      console.log(`👢 Team ${teamName} (${teamId}) kicked from game`);
+      console.log(`👢 Team ${teamName} (${teamId}) kicked from game and added to blacklist`);
     }
   });
 
