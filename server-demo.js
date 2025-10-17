@@ -234,6 +234,10 @@ io.on('connection', (socket) => {
     });
     io.to('admin-room').emit('game-reset');
     
+    // Clear kicked teams blacklist on reset
+    kickedTeams.clear();
+    console.log('✅ Kicked teams blacklist cleared on game reset');
+    
     // Only send reset command to connected teams (not kicked teams)
     connectedTeams.forEach((teamData, teamId) => {
       io.to(teamData.socketId).emit('reset-game-command');

@@ -846,6 +846,9 @@ class TunaAdventureGame {
   resetGameFromAdmin() {
     console.log("🔄 Resetting game from admin command...");
     
+    // Clear kicked flag on reset
+    this.isKicked = false;
+    
     // Reset all game state
     this.isGameStarted = false;
     this.isWaitingForAdmin = false;
@@ -1390,8 +1393,8 @@ class TunaAdventureGame {
       isKicked: this.isKicked
     });
     
-    // Don't show any game content if team has been kicked
-    if (this.isKicked) {
+    // Don't show any game content if team has been kicked (unless reset)
+    if (this.isKicked && this.currentScreen !== 'welcome-content') {
       console.log('🚫 Team has been kicked, not showing game content');
       this.showNotification(
         "Tim Anda telah dikeluarkan dari permainan. Silakan login ulang.",
