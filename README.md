@@ -142,6 +142,11 @@ tuna/
 │   └── config.example.js    # Example configuration
 ├── database/
 │   └── schema.sql           # Database schema
+├── docs/                    # 📚 Documentation (Terorganisir!)
+│   ├── guides/              # User guides
+│   ├── features/            # Feature documentation
+│   ├── bugfixes/            # Bug fixes & technical docs
+│   └── status/              # Development status
 ├── middleware/
 │   ├── auth.js             # Authentication middleware
 │   └── validation.js       # Input validation
@@ -154,7 +159,7 @@ tuna/
 │   └── app.js              # Frontend JavaScript
 ├── server.js               # Main server file
 ├── package.json            # Dependencies
-└── README.md              # Documentation
+└── README.md              # Main documentation
 ```
 
 ## 🔒 Security Features
@@ -244,6 +249,30 @@ Skor berdasarkan kesesuaian dengan jawaban standar:
    - Pastikan JWT_SECRET sudah di-set
    - Token mungkin expired, coba login ulang
 
+## 📚 Dokumentasi Lengkap
+
+Dokumentasi project ini telah diorganisir dengan rapi di folder `docs/`:
+
+### 🎯 [User Guides](./docs/guides/)
+- **[Admin Guide](./docs/guides/ADMIN-GUIDE.md)** - Panduan lengkap untuk admin panel
+- **[Debug Guide](./docs/guides/DEBUG-GUIDE.md)** - Panduan troubleshooting dan debugging
+
+### ⚡ [Features](./docs/features/)
+- **[Real-time Features](./docs/features/REAL-TIME-FEATURES.md)** - Fitur real-time dan WebSocket
+- **[Game Reset Feature](./docs/features/GAME-RESET-FEATURE.md)** - Fitur reset game untuk admin
+
+### 🐛 [Bug Fixes & Technical](./docs/bugfixes/)
+- **[Server Restart Analysis](./docs/bugfixes/SERVER-RESTART-ANALYSIS.md)** - Analisis lengkap masalah server restart
+- **[Game State Restoration](./docs/bugfixes/GAME-STATE-RESTORATION.md)** - Perbaikan game state persistence
+- **[Welcome Screen Fixes](./docs/bugfixes/WELCOME-SCREEN-FIXES.md)** - Perbaikan tampilan welcome screen
+- **[Team Management Fixes](./docs/bugfixes/)** - Perbaikan fitur manajemen tim
+
+### 📊 [Status & Demo](./docs/status/)
+- **[Demo Ready](./docs/status/DEMO-READY.md)** - Status demo dan cara menjalankan
+- **[Final Ready](./docs/status/FINAL-READY.md)** - Status final dan deployment
+
+**📖 [Lihat Index Dokumentasi Lengkap](./docs/README.md)**
+
 ## 🤝 Contributing
 
 1. Fork project
@@ -260,8 +289,8 @@ MIT License - lihat file LICENSE untuk detail
 
 Jika ada pertanyaan atau masalah:
 
-1. Cek dokumentasi ini
-2. Lihat troubleshooting section
+1. Cek dokumentasi di folder `docs/`
+2. Lihat [Debug Guide](./docs/guides/DEBUG-GUIDE.md)
 3. Buat issue di repository
 
 ---
