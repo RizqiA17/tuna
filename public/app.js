@@ -717,6 +717,8 @@ class TunaAdventureGame {
           this.currentScenario = response.data;
           this.currentScenarioPosition = this.teamData.currentPosition;
           this.updateScenarioUI();
+          // Clear form fields for new scenario
+          this.clearDecisionForm();
 
           // Hide welcome content and show scenario content
           document.getElementById("welcome-content").classList.remove("active");
@@ -742,6 +744,8 @@ class TunaAdventureGame {
         this.timeLeft = response.timeLimit;
         this.currentScenarioPosition = 1;
         this.updateScenarioUI();
+        // Clear form fields for new scenario
+        this.clearDecisionForm();
 
         // Hide welcome content and show scenario content
         document.getElementById("welcome-content").classList.remove("active");
@@ -786,6 +790,8 @@ class TunaAdventureGame {
         this.currentScenarioPosition = 1;
         this.currentScreen = 'scenario-content';
         this.updateScenarioUI();
+        // Clear form fields for new scenario
+        this.clearDecisionForm();
         this.updateGameStateUI();
         this.saveGameState();
 
@@ -904,6 +910,9 @@ class TunaAdventureGame {
   }
 
   async startDecision() {
+    // Clear form fields before starting new decision
+    this.clearDecisionForm();
+    
     // Hide scenario content and show decision content
     document.getElementById("scenario-content").classList.remove("active");
     document.getElementById("decision-content").classList.add("active");
@@ -1022,6 +1031,8 @@ class TunaAdventureGame {
         if (nextScenario) {
           this.currentScenario = nextScenario;
           this.updateScenarioUI();
+          // Clear form fields for new scenario
+          this.clearDecisionForm();
           document.getElementById("scenario-content").classList.add("active");
           this.currentScreen = 'scenario-content';
           this.saveGameState();
@@ -1120,6 +1131,18 @@ class TunaAdventureGame {
       this.currentScenario.position;
     document.getElementById("scenarioText").textContent =
       this.currentScenario.scenarioText;
+  }
+
+  clearDecisionForm() {
+    // Clear form fields
+    document.getElementById("decision").value = "";
+    document.getElementById("reasoning").value = "";
+    
+    // Reset character counters
+    document.getElementById("decisionCount").textContent = "0";
+    document.getElementById("reasoningCount").textContent = "0";
+    
+    console.log("🧹 Form fields cleared for new scenario");
   }
 
   updateCompleteUI() {
@@ -1320,6 +1343,8 @@ class TunaAdventureGame {
               
               // Update scenario UI immediately
               this.updateScenarioUI();
+              // Clear form fields for restored scenario
+              this.clearDecisionForm();
               this.updateGameUI();
             } else if (serverState.currentPosition > 1) {
               // Team has completed scenarios but no current scenario
@@ -1425,6 +1450,8 @@ class TunaAdventureGame {
       if (this.currentScreen === 'scenario-content' && this.currentScenario) {
         console.log('  - Updating scenario UI for restored scenario');
         this.updateScenarioUI();
+        // Clear form fields for restored scenario
+        this.clearDecisionForm();
       }
     } else {
       // Default to welcome content if no specific screen is set or if currentScreen is game-screen

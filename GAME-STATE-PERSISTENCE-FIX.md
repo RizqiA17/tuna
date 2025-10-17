@@ -198,3 +198,5 @@ Server sudah memiliki endpoint `/game/status` yang mengembalikan:
 
 Masalah game state persistence telah diperbaiki dengan pendekatan **server-first** yang memastikan user selalu melihat kondisi game yang benar saat rejoin, sambil tetap menjaga keamanan server restart.
 
+
+
