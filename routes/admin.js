@@ -1,6 +1,6 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
-const { executeQuery } = require("../config/database");
+const { executeQuery, getConnection } = require("../config/database");
 const { authenticateAdmin, generateAdminToken } = require("../middleware/auth");
 
 const router = express.Router();
