@@ -628,6 +628,11 @@ class TunaAdventureGame {
       this.logout();
     });
 
+    this.socket.on('reset-game-command', () => {
+      console.log('🔄 Received reset game command from admin');
+      this.resetGameFromAdmin();
+    });
+
     // Listen for game state updates from server
     this.socket.on('game-state-update', (data) => {
       console.log('🔄 Game state update from server:', data);
@@ -771,6 +776,42 @@ class TunaAdventureGame {
     this.showNotification(
       "Admin telah mengakhiri permainan.",
       "info"
+    );
+  }
+
+  resetGameFromAdmin() {
+    console.log("🔄 Resetting game from admin command...");
+    
+    // Reset all game state
+    this.isGameStarted = false;
+    this.isWaitingForAdmin = false;
+    this.gameState = 'waiting';
+    this.currentScreen = 'welcome-content';
+    this.currentScenarioPosition = 1;
+    this.currentScenario = null;
+    this.timeLeft = 900;
+    this.stopTimer();
+    this.clearTimerState();
+    
+    // Reset team data to initial state
+    if (this.teamData) {
+      this.teamData.currentPosition = 1;
+      this.teamData.totalScore = 0;
+    }
+    
+    // Clear all saved states
+    this.clearGameState();
+    localStorage.removeItem("tuna_game_state");
+    localStorage.removeItem("tuna_timer_state");
+    
+    // Update UI
+    this.updateGameUI();
+    this.updateGameStateUI();
+    this.showAppropriateContent();
+    
+    this.showNotification(
+      "Admin telah mereset permainan. Anda dapat memulai permainan baru.",
+      "success"
     );
   }
 

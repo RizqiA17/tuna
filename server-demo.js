@@ -217,6 +217,17 @@ io.on('connection', (socket) => {
     io.emit('end-game-command');
   });
 
+  socket.on('reset-game-all', () => {
+    gameState = 'waiting';
+    currentStep = 1;
+    serverLogger.gameState('reset', { 
+      adminSocketId: socket.id,
+      connectedTeamsCount: connectedTeams.size 
+    });
+    io.to('admin-room').emit('game-reset');
+    io.emit('reset-game-command');
+  });
+
   socket.on('kick-team', (data) => {
     const { teamId } = data;
     const teamSocketId = connectedTeams.get(teamId);
@@ -910,6 +921,48 @@ app.get("/api/admin/leaderboard", authenticateAdmin, (req, res) => {
     success: true,
     data: leaderboard,
   });
+});
+
+// Reset game for all teams (demo version)
+app.post("/api/admin/reset-game", authenticateAdmin, (req, res) => {
+  try {
+    // Reset all teams to position 1 and score 0
+    for (const [teamName, team] of mockTeams) {
+      team.currentPosition = 1;
+      team.totalScore = 0;
+    }
+
+    // Clear all decisions
+    mockDecisions.clear();
+
+    // Reset game state
+    gameState = 'waiting';
+    currentStep = 1;
+
+    // Reset connected teams data
+    for (const [teamId, teamData] of connectedTeams) {
+      teamData.position = 1;
+      teamData.score = 0;
+      teamData.isCompleted = false;
+    }
+
+    serverLogger.system('game', 'reset', {
+      adminSocketId: req.admin.id,
+      teamsReset: mockTeams.size,
+      connectedTeamsReset: connectedTeams.size
+    });
+
+    res.json({
+      success: true,
+      message: "Game reset successfully for all teams",
+    });
+  } catch (error) {
+    console.error("Reset game error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
 });
 
 app.get("/api/game/scenario/:position", (req, res) => {

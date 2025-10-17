@@ -176,6 +176,12 @@ io.on('connection', (socket) => {
     io.emit('end-game-command');
   });
 
+  socket.on('reset-game-all', () => {
+    console.log('🔄 Admin resetting game for all teams');
+    io.to('admin-room').emit('game-reset');
+    io.emit('reset-game-command');
+  });
+
   socket.on('kick-team', (data) => {
     const { teamId } = data;
     const teamSocketId = connectedTeams.get(teamId);

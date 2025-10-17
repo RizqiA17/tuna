@@ -229,6 +229,42 @@ router.get("/leaderboard", adminRateLimit, async (req, res) => {
   }
 });
 
+// Reset game for all teams
+router.post("/reset-game", adminRateLimit, async (req, res) => {
+  try {
+    const connection = await getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // Reset all teams to position 1 and score 0
+      await connection.execute(
+        "UPDATE teams SET current_position = 1, total_score = 0"
+      );
+
+      // Clear all team decisions
+      await connection.execute("DELETE FROM team_decisions");
+
+      await connection.commit();
+
+      res.json({
+        success: true,
+        message: "Game reset successfully for all teams",
+      });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error("Reset game error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
 // Get game statistics
 router.get("/stats", adminRateLimit, async (req, res) => {
   try {

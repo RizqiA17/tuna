@@ -180,6 +180,13 @@ class AdminPanel {
             });
         }
 
+        const resetGameAllBtn = document.getElementById("resetGameAllBtn");
+        if (resetGameAllBtn) {
+            resetGameAllBtn.addEventListener("click", () => {
+                this.resetGameForAllTeams();
+            });
+        }
+
         // Event delegation for dynamically created buttons
         document.addEventListener("click", (e) => {
             if (e.target.closest(".view-team-btn")) {
@@ -347,6 +354,13 @@ class AdminPanel {
             this.showNotification('Game ended for all teams', 'warning');
         });
 
+        this.socket.on('game-reset', () => {
+            console.log('🔄 Game reset for all teams');
+            this.updateGameStatus('Reset Complete');
+            this.updateGameControlButtons();
+            this.showNotification('Game reset for all teams', 'success');
+        });
+
         // Listen for game state updates from server
         this.socket.on('game-state-update', (data) => {
             console.log('🔄 Game state update from server:', data);
@@ -396,6 +410,51 @@ class AdminPanel {
         }
     }
 
+    async resetGameForAllTeams() {
+        if (confirm('Are you sure you want to reset the game for all teams? This will clear all progress and decisions.')) {
+            try {
+                this.showLoading(true);
+                this.updateGameStatus('Resetting...');
+                
+                const response = await fetch(`${this.apiBase}/admin/reset-game`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${this.token}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Reset admin state
+                    this.gameState = 'waiting';
+                    this.teamsCompletedCurrentStep.clear();
+                    this.saveAdminState();
+                    
+                    // Emit reset command to all teams via WebSocket
+                    if (this.socket) {
+                        this.socket.emit('reset-game-all');
+                    }
+                    
+                    this.updateGameStatus('Reset Complete');
+                    this.updateGameControlButtons();
+                    this.showNotification('Game reset successfully for all teams', 'success');
+                    
+                    // Refresh data
+                    await this.loadData();
+                } else {
+                    this.showNotification(data.message || 'Failed to reset game', 'error');
+                }
+            } catch (error) {
+                console.error('Reset game error:', error);
+                this.showNotification('Failed to reset game', 'error');
+            } finally {
+                this.showLoading(false);
+            }
+        }
+    }
+
     kickTeam(teamId) {
         if (this.socket && confirm('Are you sure you want to kick this team?')) {
             this.socket.emit('kick-team', { teamId });
@@ -431,6 +490,7 @@ class AdminPanel {
         const startBtn = document.getElementById('startGameAllBtn');
         const nextBtn = document.getElementById('nextScenarioAllBtn');
         const endBtn = document.getElementById('endGameAllBtn');
+        const resetBtn = document.getElementById('resetGameAllBtn');
 
         if (startBtn) {
             if (this.gameState === 'waiting') {
@@ -471,6 +531,12 @@ class AdminPanel {
             } else {
                 endBtn.style.display = 'none';
             }
+        }
+
+        if (resetBtn) {
+            // Reset button is always available
+            resetBtn.style.display = 'block';
+            resetBtn.disabled = false;
         }
     }
 
