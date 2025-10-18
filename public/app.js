@@ -21,6 +21,7 @@ class TunaAdventureGame {
     this.timerStartTime = null;
     this.timerDuration = 900; // 15 minutes in seconds
     this.isTimerActive = false;
+    this.isTimerRestoring = false; // Flag to prevent multiple restoration
     this.currentScreen = "login-screen";
 
     this.init();
@@ -68,11 +69,25 @@ class TunaAdventureGame {
           this.showScreen("game-screen");
           this.updateGameUI();
 
+          // Check game state before restoration
+          const gameStateBefore = localStorage.getItem("tuna_game_state");
+          this.logger.info("Game state before restoration", {
+            hasGameState: !!gameStateBefore,
+            gameState: gameStateBefore ? JSON.parse(gameStateBefore) : null
+          });
+
           // Restore game state after basic setup (like handleLogin would do)
           const gameStateRestored = await this.restoreGameState();
           if (gameStateRestored) {
             this.logger.info("Game state restored successfully");
           }
+
+          // Check game state after restoration
+          const gameStateAfter = localStorage.getItem("tuna_game_state");
+          this.logger.info("Game state after restoration", {
+            hasGameState: !!gameStateAfter,
+            gameState: gameStateAfter ? JSON.parse(gameStateAfter) : null
+          });
 
           this.logger.info("Game screen shown, UI updated successfully");
         } catch (error) {
@@ -431,11 +446,25 @@ class TunaAdventureGame {
       this.hideLoginScreen();
       this.showScreen("game-screen");
       this.updateGameUI();
+
+      // CRITICAL: Restore game state after login
+      this.logger.info("Login successful, attempting to restore game state");
+      const gameStateRestored = await this.restoreGameState();
+      if (gameStateRestored) {
+        this.logger.info("Game state restored successfully after login");
+      } else {
+        this.logger.info("No game state to restore after login");
+      }
+
       this.showNotification(
         "Login berhasil! Selamat datang kembali.",
         "success"
       );
     } catch (error) {
+      this.logger.error("Login failed", {
+        error: error.message,
+        stack: error.stack
+      });
       this.showNotification(error.message, "error");
     }
   }
@@ -567,6 +596,16 @@ class TunaAdventureGame {
     try {
       this.socket = io();
       this.logger.info("WebSocket connection initialized");
+      
+      // Add debugging for all WebSocket events
+      this.socket.onAny((eventName, ...args) => {
+        this.logger.debug("WebSocket event received", {
+          event: eventName,
+          args: args,
+          currentScreen: this.currentScreen,
+          gameState: this.gameState
+        });
+      });
 
       // Add timeout for WebSocket connection
       const connectionTimeout = setTimeout(() => {
@@ -674,6 +713,14 @@ class TunaAdventureGame {
 
     this.socket.on("team-kicked", () => {
       console.log("👢 Team has been kicked by admin");
+      this.logger.info("Team kicked event received", {
+        currentScreen: this.currentScreen,
+        gameState: this.gameState,
+        hasTeamData: !!this.teamData,
+        hasGameState: !!localStorage.getItem("tuna_game_state"),
+        hasTimerState: !!localStorage.getItem("tuna_timer_state")
+      });
+      
       this.showNotification(
         "Tim Anda telah dikeluarkan dari permainan oleh admin. Anda tidak dapat masuk kembali.",
         "error"
@@ -685,9 +732,8 @@ class TunaAdventureGame {
       // Reset join flag to prevent reconnection
       this.hasJoinedAsTeam = false;
 
-      // Clear all game state
-      this.clearGameState();
-      localStorage.removeItem("tuna_game_state");
+      // Clear all game state and storage
+      this.clearGameStateAndStorage();
       localStorage.removeItem("tuna_timer_state");
 
       // Disconnect from WebSocket to prevent reconnection
@@ -700,6 +746,13 @@ class TunaAdventureGame {
 
     this.socket.on("reset-game-command", () => {
       console.log("🔄 Received reset game command from admin");
+      this.logger.info("Reset game command received", {
+        currentScreen: this.currentScreen,
+        gameState: this.gameState,
+        hasTeamData: !!this.teamData,
+        hasGameState: !!localStorage.getItem("tuna_game_state"),
+        hasTimerState: !!localStorage.getItem("tuna_timer_state")
+      });
 
       // Don't process reset if team has been kicked
       if (this.isKicked) {
@@ -977,9 +1030,8 @@ class TunaAdventureGame {
       this.teamData.totalScore = 0;
     }
 
-    // Clear all saved states
-    this.clearGameState();
-    localStorage.removeItem("tuna_game_state");
+    // Clear all saved states and storage
+    this.clearGameStateAndStorage();
     localStorage.removeItem("tuna_timer_state");
 
     // Update UI
@@ -1316,6 +1368,17 @@ class TunaAdventureGame {
   }
 
   logout() {
+    // Save current game state BEFORE clearing any data
+    if (this.currentScreen && this.currentScreen !== "login-screen") {
+      this.saveGameState();
+      this.logger.info("Game state saved before logout", {
+        currentScreen: this.currentScreen,
+        gameState: this.gameState,
+        hasTeamData: !!this.teamData,
+        hasCurrentScenario: !!this.currentScenario
+      });
+    }
+
     // Notify server about logout if team is connected
     if (this.socket && this.teamData) {
       const teamId = this.teamData.teamId || this.teamData.id;
@@ -1329,9 +1392,21 @@ class TunaAdventureGame {
     localStorage.removeItem("tuna_token");
     this.teamData = null;
     this.currentScenario = null;
+    
+    // Save timer state before stopping timer
+    if (this.isTimerActive && this.timerStartTime) {
+      this.saveTimerState();
+      this.logger.info("Timer state saved before logout", {
+        isTimerActive: this.isTimerActive,
+        timerStartTime: this.timerStartTime,
+        timeLeft: this.timeLeft
+      });
+    }
+    
     this.stopTimer();
-    this.clearTimerState();
-    localStorage.removeItem("tuna_game_state");
+    // Don't clear timer state - keep it for restoration on relog
+    this.isTimerRestoring = false;
+    // Don't remove tuna_game_state - keep it for restoration on relog
     this.showScreen("login-screen");
     this.resetForms();
     this.showNotification("Anda telah keluar dari permainan.", "info");
@@ -1400,6 +1475,13 @@ class TunaAdventureGame {
         this.gameState = "running";
         this.isGameStarted = true;
         this.isWaitingForAdmin = false;
+        
+        // Don't change currentScreen if we're already in decision-content or results-content
+        // Only change to scenario-content if we're in welcome or other screens
+        const shouldChangeScreen = this.currentScreen !== "decision-content" && 
+                                   this.currentScreen !== "results-content";
+        
+        if (shouldChangeScreen) {
         console.log("🔄 currentScreen changed to scenario-content (line 769)");
         console.log("🔄 currentScreen changed to scenario-content (line 807)");
         console.log("🔄 currentScreen changed to scenario-content (line 1092)");
@@ -1408,6 +1490,9 @@ class TunaAdventureGame {
         console.log("🔄 currentScreen changed to scenario-content (line 1606)");
         console.log("🔄 currentScreen changed to scenario-content (line 1707)");
         this.currentScreen = "scenario-content";
+        } else {
+          console.log(`📌 Keeping currentScreen as ${this.currentScreen} (not changing to scenario-content)`);
+        }
 
         // Update UI
         this.updateScenarioUI();
@@ -1417,8 +1502,8 @@ class TunaAdventureGame {
 
         this.updateGameUI();
 
-        // Only call showAppropriateContent if we're not in results screen
-        if (this.currentScreen !== "results-content") {
+        // Only call showAppropriateContent if we're not in results screen and screen was changed
+        if (this.currentScreen !== "results-content" && shouldChangeScreen) {
           this.showAppropriateContent();
         }
 
@@ -1520,6 +1605,12 @@ class TunaAdventureGame {
 
   // Timer
   startTimer() {
+    // Prevent multiple timer instances
+    if (this.timer) {
+      this.logger.info("Timer already running, skipping start");
+      return;
+    }
+
     this.timeLeft = 900; // 15 minutes
     this.timerStartTime = Date.now();
     this.timerDuration = 900;
@@ -1545,23 +1636,45 @@ class TunaAdventureGame {
     }, 1000);
 
     this.updateTimerDisplay();
+    
+    this.logger.info("Timer started", {
+      timeLeft: this.timeLeft,
+      startTime: this.timerStartTime
+    });
   }
 
   stopTimer() {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
+      this.logger.info("Timer stopped");
     }
     this.isTimerActive = false;
     this.timerStartTime = null;
-    this.clearTimerState();
+    this.isTimerRestoring = false;
+    // Don't clear timer state - keep it for restoration
   }
 
   updateTimerDisplay() {
     const minutes = Math.floor(this.timeLeft / 60);
     const seconds = this.timeLeft % 60;
     const display = `${minutes}:${seconds.toString().padStart(2, "0")}`;
-    document.getElementById("timeRemaining").textContent = display;
+    
+    const timeElement = document.getElementById("timeRemaining");
+    if (timeElement) {
+      timeElement.textContent = display;
+      this.logger.debug("Timer display updated", {
+        timeLeft: this.timeLeft,
+        display: display,
+        elementFound: true
+      });
+    } else {
+      this.logger.error("Timer display element not found", {
+        timeLeft: this.timeLeft,
+        display: display,
+        elementFound: false
+      });
+    }
   }
 
   // Timer persistence methods
@@ -1582,31 +1695,154 @@ class TunaAdventureGame {
   }
 
   restoreTimerState() {
+    this.logger.info("restoreTimerState called", {
+      currentScreen: this.currentScreen,
+      isTimerRestoring: this.isTimerRestoring,
+      hasTimer: !!this.timer
+    });
+
+    // Prevent multiple restoration attempts
+    if (this.isTimerRestoring) {
+      this.logger.info("Timer restoration already in progress, skipping");
+      return false;
+    }
+
     try {
       const savedState = localStorage.getItem("tuna_timer_state");
+      this.logger.info("Timer state check", {
+        hasSavedState: !!savedState,
+        currentScreen: this.currentScreen
+      });
+
       if (savedState) {
         const timerState = JSON.parse(savedState);
+        this.logger.info("Timer state parsed", {
+          timerState: timerState,
+          currentScreen: this.currentScreen,
+          isActive: timerState.isActive,
+          startTime: timerState.startTime,
+          timerScreen: timerState.currentScreen
+        });
 
-        // Don't restore timer state - let server provide current state
-        // Timer state should only be restored if server confirms game is running
+        // Only restore timer if we're in decision-content and timer was active
+        if (this.currentScreen === "decision-content" && 
+            timerState.isActive && 
+            timerState.startTime && 
+            timerState.currentScreen === "decision-content") {
+          
+          // Prevent multiple timer instances
+          if (this.timer) {
+            this.logger.info("Timer already running, skipping restoration");
+            return true;
+          }
+
+          this.isTimerRestoring = true;
+
+          const now = Date.now();
+          const elapsed = Math.floor((now - timerState.startTime) / 1000);
+          const remaining = Math.max(0, timerState.duration - elapsed);
+
+          if (remaining > 0) {
+            // Clean up any existing timer first
+            this.stopTimer();
+
+            // Restore timer with remaining time
+            this.timeLeft = remaining;
+            this.timerStartTime = timerState.startTime;
+            this.timerDuration = timerState.duration;
+            this.isTimerActive = true;
+
+            // Start the timer with more precise timing
+            this.timer = setInterval(() => {
+              this.timeLeft--;
+              this.logger.debug("Timer tick", {
+                timeLeft: this.timeLeft,
+                timerExists: !!this.timer
+              });
+              this.updateTimerDisplay();
+              this.saveTimerState();
+
+              if (this.timeLeft <= 0) {
+                this.stopTimer();
+                this.showNotification(
+                  "Waktu habis! Kirim keputusan sekarang.",
+                  "warning"
+                );
+              }
+            }, 1000);
+
+            this.updateTimerDisplay();
+            
+            // Verify timer is actually running
+            this.logger.info("Timer interval created", {
+              timerExists: !!this.timer,
+              timeLeft: this.timeLeft,
+              isTimerActive: this.isTimerActive
+            });
+            
         this.logger.info(
-          "Timer state found in localStorage but not restoring - waiting for server confirmation"
-        );
+              "Timer restored for decision-content",
+              {
+                remainingTime: this.timeLeft,
+                originalDuration: timerState.duration,
+                elapsed: elapsed,
+                startTime: timerState.startTime,
+                currentTime: now
+              }
+            );
+            
+            // Double-check timer is running after a short delay
+            setTimeout(() => {
+              if (this.timer && this.isTimerActive) {
+                this.logger.info("Timer confirmed running after restoration", {
+                  timeLeft: this.timeLeft,
+                  timerExists: !!this.timer
+                });
+              } else {
+                this.logger.error("Timer failed to start after restoration", {
+                  timerExists: !!this.timer,
+                  isTimerActive: this.isTimerActive,
+                  timeLeft: this.timeLeft
+                });
+              }
+            }, 1000);
+            
+            this.isTimerRestoring = false;
+            return true;
+          } else {
+            // Timer has expired
+            this.logger.info("Timer has expired, not restoring");
         this.clearTimerState();
+            this.isTimerRestoring = false;
+          }
+        } else {
+          this.logger.info(
+            "Timer state found but not restoring - not in decision-content or timer inactive",
+            {
+              currentScreen: this.currentScreen,
+              timerActive: timerState.isActive,
+              timerScreen: timerState.currentScreen
+            }
+          );
+          this.clearTimerState();
+          this.isTimerRestoring = false;
+        }
       }
     } catch (error) {
       console.error("Error restoring timer state:", error);
       this.clearTimerState();
+      this.isTimerRestoring = false;
     }
     return false;
   }
 
   clearTimerState() {
     localStorage.removeItem("tuna_timer_state");
+    this.isTimerRestoring = false;
   }
 
   clearGameState() {
-    localStorage.removeItem("tuna_game_state");
+    // Don't remove localStorage - keep game state for restoration
     this.gameState = "waiting";
     this.isGameStarted = false;
     this.isWaitingForAdmin = true;
@@ -1622,6 +1858,17 @@ class TunaAdventureGame {
     setTimeout(() => {
       this.forceShowWelcomeContent();
     }, 100);
+  }
+
+  clearGameStateAndStorage() {
+    // This method removes localStorage - use only when really needed
+    this.logger.info("Clearing game state and storage", {
+      currentScreen: this.currentScreen,
+      gameState: this.gameState,
+      stackTrace: new Error().stack
+    });
+    localStorage.removeItem("tuna_game_state");
+    this.clearGameState();
   }
 
   forceShowWelcomeContent() {
@@ -1651,10 +1898,35 @@ class TunaAdventureGame {
       currentScenarioPosition: this.currentScenarioPosition,
       resultsData: this.resultsData,
     };
+    
+    this.logger.info("Saving game state", {
+      currentScreen: this.currentScreen,
+      gameState: this.gameState,
+      isGameStarted: this.isGameStarted,
+      hasTeamData: !!this.teamData,
+      hasCurrentScenario: !!this.currentScenario
+    });
+    
     localStorage.setItem("tuna_game_state", JSON.stringify(gameState));
+    
+    // Verify the save worked
+    const savedState = localStorage.getItem("tuna_game_state");
+    if (savedState) {
+      this.logger.info("Game state saved successfully", {
+        savedState: JSON.parse(savedState)
+      });
+    } else {
+      this.logger.error("Failed to save game state");
+    }
   }
 
   async restoreGameState() {
+    this.logger.info("restoreGameState called", {
+      hasTeamData: !!this.teamData,
+      teamData: this.teamData,
+      currentScreen: this.currentScreen
+    });
+
     try {
       // First, try to get current game state from server
       if (this.teamData) {
@@ -1676,11 +1948,99 @@ class TunaAdventureGame {
               frontendCurrentScenario: this.currentScenario,
             });
 
+            // CRITICAL: Check localStorage FIRST to see what screen user was actually viewing
+            const savedGameState = localStorage.getItem("tuna_game_state");
+            if (savedGameState) {
+              try {
+                const gameState = JSON.parse(savedGameState);
+                this.logger.info("Checking localStorage game state for screen restoration", {
+                  gameStateCurrentScreen: gameState.currentScreen,
+                  serverScenario: serverState.currentScenario,
+                  hasCurrentScenario: !!serverState.currentScenario
+                });
+                
+                // If user was viewing results or leaderboard, prioritize that over timer
+                if (gameState.currentScreen === "results-content" || 
+                    gameState.currentScreen === "leaderboard-content") {
+                  
+                  this.logger.info("User was viewing results/leaderboard, restoring that screen", {
+                    currentScreen: gameState.currentScreen,
+                    serverScenario: serverState.currentScenario
+                  });
+                  
+                  // Restore the screen user was actually viewing
+                  this.currentScreen = gameState.currentScreen;
+                  this.currentScenario = serverState.currentScenario;
+                  this.gameState = "waiting";
+                  this.isWaitingForAdmin = true;
+                  
+                  // Restore results data if available
+                  if (gameState.resultsData) {
+                    this.resultsData = gameState.resultsData;
+                  }
+                  
+                  // Skip timer restoration and go straight to showing content
+                  this.showAppropriateContent();
+                  return true;
+                }
+                
+                // If user was in decision-content AND timer is active, restore timer
+                if (gameState.currentScreen === "decision-content" && 
+                    serverState.currentScenario && 
+                    serverState.currentPosition > 0 && 
+                    !serverState.isGameComplete) {
+                  
+                  const timerState = localStorage.getItem("tuna_timer_state");
+                  if (timerState) {
+                    try {
+                      const parsedTimerState = JSON.parse(timerState);
+                      if (parsedTimerState.currentScreen === "decision-content" && 
+                          parsedTimerState.isActive) {
+                        
+                        this.logger.info("User was in decision phase with active timer, restoring timer", {
+                          serverScenario: serverState.currentScenario,
+                          timerState: parsedTimerState
+                        });
+                        
+                        // Set decision-content screen and restore timer
+                        this.currentScreen = "decision-content";
+                        this.currentScenario = serverState.currentScenario;
+                        this.gameState = "running";
+                        this.isGameStarted = true;
+                        this.isWaitingForAdmin = false;
+                        
+                        // Restore timer immediately
+                        this.restoreTimerState();
+                        
+                        this.logger.info("Timer restored based on server state", {
+                          currentScreen: this.currentScreen,
+                          hasTimer: !!this.timer
+                        });
+                        
+                        // Skip the rest of the restoration logic
+                        this.showAppropriateContent();
+                        return true;
+                      }
+                    } catch (error) {
+                      this.logger.error("Error parsing timer state", { error: error.message });
+                    }
+                  }
+                }
+              } catch (error) {
+                this.logger.error("Error parsing game state", { error: error.message });
+              }
+            }
+            
+            // If we reach here, timer was not restored, continue with normal logic
+            console.log("🔍 Timer not restored, continuing with normal restoration logic");
+
             console.log("🔍 Starting restoreGameState conditional checks:", {
               isGameComplete: serverState.isGameComplete,
               hasCurrentScenario: !!serverState.currentScenario,
               currentPosition: serverState.currentPosition,
               currentScreen: this.currentScreen,
+              serverScenario: serverState.currentScenario,
+              teamData: this.teamData
             });
 
             if (serverState.isGameComplete) {
@@ -1776,6 +2136,13 @@ class TunaAdventureGame {
                       }
                     );
                   } else if (gameState.currentScreen === "decision-content") {
+                    console.log("🔍 Entering decision-content restoration block");
+                    this.logger.info("Decision content restoration triggered", {
+                      gameStateCurrentScreen: gameState.currentScreen,
+                      serverScenario: serverState.currentScenario,
+                      hasServerScenario: !!serverState.currentScenario
+                    });
+                    
                     // User was viewing decision content, restore that screen
                     this.currentScreen = "decision-content";
                     this.currentScenario = serverState.currentScenario;
@@ -1784,11 +2151,16 @@ class TunaAdventureGame {
                     this.isWaitingForAdmin = false;
                     shouldShowScenario = false; // Don't show scenario, show decision
                     
+                    // Restore timer immediately after setting currentScreen
+                    console.log("🔍 About to restore timer state");
+                    this.restoreTimerState();
+                    
                     this.logger.info(
                       "User was viewing decision content, restoring decision screen",
                       {
                         currentScreen: gameState.currentScreen,
                         serverScenario: serverState.currentScenario,
+                        timerRestored: !!this.timer
                       }
                     );
                   }
@@ -2149,6 +2521,12 @@ class TunaAdventureGame {
               currentScreen: this.currentScreen,
             });
 
+            // Restore timer if we're in decision-content
+            if (this.currentScreen === "decision-content") {
+              this.logger.info("Restoring timer from localStorage fallback");
+              this.restoreTimerState();
+            }
+
             // Show appropriate content immediately (like handleLogin does)
             this.showAppropriateContent();
 
@@ -2167,6 +2545,37 @@ class TunaAdventureGame {
     } catch (error) {
       console.error("Error restoring game state:", error);
     }
+
+    // Final fallback: check if we have timer state but no game state
+    // This can happen if user was in decision-content but game state was cleared
+    const timerState = localStorage.getItem("tuna_timer_state");
+    if (timerState && !this.teamData) {
+      try {
+        const parsedTimerState = JSON.parse(timerState);
+        if (parsedTimerState.currentScreen === "decision-content" && parsedTimerState.isActive) {
+          this.logger.info("Found timer state but no game state - attempting to restore timer", {
+            timerState: parsedTimerState
+          });
+          
+          // Set minimal state needed for timer restoration
+          this.currentScreen = "decision-content";
+          this.gameState = "running";
+          this.isGameStarted = true;
+          this.isWaitingForAdmin = false;
+          
+          // Try to restore timer
+          this.restoreTimerState();
+          
+          return true;
+        }
+      } catch (error) {
+        this.logger.error("Error parsing timer state in fallback", {
+          error: error.message,
+        });
+      }
+    }
+
+    return false;
   }
 
   // IMPORTANT: New method to sync with server state when step changes
@@ -2379,6 +2788,12 @@ class TunaAdventureGame {
           const scenarioContent = document.getElementById("scenario-content");
           if (scenarioContent) {
             scenarioContent.classList.remove("active");
+          }
+          
+          // Restore timer for decision content
+          if (!this.timer && !this.isTimerRestoring) {
+            console.log("  - Restoring timer for decision content");
+            this.restoreTimerState();
           }
           
           // Make sure we have scenario data for decision making
