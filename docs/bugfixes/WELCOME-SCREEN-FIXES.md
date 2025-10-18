@@ -158,3 +158,5 @@ debugTuna.showAppropriate()
 4. **UI update consistency** - `clearGameState()` memanggil UI update methods
 
 **Welcome screen sekarang akan muncul secara konsisten di semua scenario.**
+
+
