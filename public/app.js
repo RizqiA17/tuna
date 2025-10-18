@@ -1101,7 +1101,12 @@ class TunaAdventureGame {
     this.currentScreen = "decision-content";
     this.saveGameState();
 
-    this.startTimer();
+    // Try to restore existing timer state first
+    const timerRestored = this.restoreTimerState();
+    if (!timerRestored) {
+      // Only start new timer if no existing timer was restored
+      this.startTimer();
+    }
     this.showNotification(
       "Waktu diskusi dimulai! Anda memiliki 15 menit.",
       "info"
@@ -1268,6 +1273,10 @@ class TunaAdventureGame {
     } else {
       // Hide results and load next scenario
       document.getElementById("results-content").classList.remove("active");
+
+      // Clear timer state for new scenario
+      this.stopTimer();
+      this.clearTimerState();
 
       try {
         // Get the next scenario directly from our game scenarios
