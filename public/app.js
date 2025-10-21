@@ -24,6 +24,11 @@ class TunaAdventureGame {
     this.isTimerRestoring = false; // Flag to prevent multiple restoration
     this.currentScreen = "login-screen";
 
+    // Browser event handling properties
+    this.isSavingState = false; // Flag to prevent multiple simultaneous saves
+    this.lastSaveTime = 0; // Track last save time for debouncing
+    this.saveDebounceDelay = 1000; // 1 second debounce
+
     this.init();
   }
 
@@ -37,6 +42,9 @@ class TunaAdventureGame {
     try {
       // Initialize dark mode
       this.initDarkMode();
+
+      // Initialize browser event handlers for optimal state saving
+      this.initBrowserEventHandlers();
 
       // Initialize WebSocket connection (non-blocking)
       this.initWebSocket();
@@ -589,6 +597,249 @@ class TunaAdventureGame {
     this.updateGameStateUI();
 
     return response.data;
+  }
+
+  // Browser Event Handlers for Optimal State Saving
+  initBrowserEventHandlers() {
+    this.logger.info("Initializing browser event handlers for state persistence");
+
+    // Handle page unload (browser close, refresh, navigation)
+    window.addEventListener('beforeunload', (event) => {
+      this.logger.info("beforeunload event triggered - saving state");
+      this.saveStateOnUnload();
+      
+      // For modern browsers, we can't prevent the unload, but we can save state
+      // The browser will give us a small window to save data
+    });
+
+    // Handle page visibility changes (tab switching, minimize, etc.)
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.logger.info("Page hidden - saving state");
+        this.debouncedSaveState();
+      } else {
+        this.logger.info("Page visible - checking for updates");
+        this.checkForStateUpdates();
+      }
+    });
+
+    // Handle page hide/show (better support for mobile)
+    window.addEventListener('pagehide', (event) => {
+      this.logger.info("pagehide event triggered - saving state");
+      this.saveStateOnUnload();
+    });
+
+    window.addEventListener('pageshow', (event) => {
+      this.logger.info("pageshow event triggered - checking state");
+      if (event.persisted) {
+        // Page was restored from cache
+        this.logger.info("Page restored from cache - syncing state");
+        this.syncStateAfterRestore();
+      } else {
+        // Fresh page load
+        this.logger.info("Fresh page load - normal initialization");
+      }
+    });
+
+    // Handle storage events for multi-tab synchronization
+    window.addEventListener('storage', (event) => {
+      if (event.key === 'tuna_game_state' || event.key === 'tuna_timer_state') {
+        this.logger.info("Storage event detected - syncing with other tabs", {
+          key: event.key,
+          newValue: event.newValue ? 'present' : 'null'
+        });
+        this.syncWithOtherTabs(event.key, event.newValue);
+      }
+    });
+
+    // Handle online/offline events
+    window.addEventListener('online', () => {
+      this.logger.info("Network connection restored");
+      this.showNotification('Koneksi internet telah pulih', 'success');
+      this.syncWithServer();
+    });
+
+    window.addEventListener('offline', () => {
+      this.logger.info("Network connection lost");
+      this.showNotification('Koneksi internet terputus. Data akan disinkronkan saat online kembali.', 'warning');
+    });
+
+    this.logger.info("Browser event handlers initialized successfully");
+  }
+
+  // Save state when page is about to unload
+  saveStateOnUnload() {
+    if (this.isSavingState) {
+      this.logger.warn("Save already in progress, skipping");
+      return;
+    }
+
+    this.isSavingState = true;
+    
+    try {
+      // Save game state if we have meaningful data
+      if (this.teamData && this.currentScreen && this.currentScreen !== "login-screen") {
+        this.saveGameState();
+        this.logger.info("Game state saved on unload", {
+          currentScreen: this.currentScreen,
+          gameState: this.gameState,
+          hasTeamData: !!this.teamData
+        });
+      }
+
+      // Save timer state if timer is active
+      if (this.isTimerActive && this.timerStartTime) {
+        this.saveTimerState();
+        this.logger.info("Timer state saved on unload", {
+          isTimerActive: this.isTimerActive,
+          timeLeft: this.timeLeft
+        });
+      }
+
+      // Notify server about potential disconnection
+      if (this.socket && this.teamData && this.hasJoinedAsTeam) {
+        const teamId = this.teamData.teamId || this.teamData.id;
+        if (teamId) {
+          this.socket.emit("team-logout", { teamId });
+          this.logger.info("Notified server about team logout on unload", { teamId });
+        }
+      }
+
+    } catch (error) {
+      this.logger.error("Error saving state on unload", { error: error.message });
+    } finally {
+      this.isSavingState = false;
+    }
+  }
+
+  // Debounced state saving to prevent excessive saves
+  debouncedSaveState() {
+    const now = Date.now();
+    if (now - this.lastSaveTime < this.saveDebounceDelay) {
+      this.logger.debug("Save debounced - too soon since last save");
+      return;
+    }
+
+    this.lastSaveTime = now;
+    
+    if (this.isSavingState) {
+      this.logger.debug("Save already in progress, skipping debounced save");
+      return;
+    }
+
+    this.isSavingState = true;
+    
+    try {
+      if (this.teamData && this.currentScreen && this.currentScreen !== "login-screen") {
+        this.saveGameState();
+        this.logger.debug("State saved via debounced save");
+      }
+    } catch (error) {
+      this.logger.error("Error in debounced save", { error: error.message });
+    } finally {
+      this.isSavingState = false;
+    }
+  }
+
+  // Check for state updates when page becomes visible
+  checkForStateUpdates() {
+    if (!this.teamData) {
+      this.logger.debug("No team data, skipping state update check");
+      return;
+    }
+
+    this.logger.info("Checking for state updates after page visibility change");
+    
+    // If we have a WebSocket connection, request latest state
+    if (this.socket && this.socket.connected) {
+      this.socket.emit("request-game-state");
+      this.logger.debug("Requested game state from server");
+    }
+
+    // Also check if we need to restore state
+    if (this.currentScreen === "login-screen" && this.token) {
+      this.logger.info("Page visible with token but on login screen - attempting restoration");
+      this.restoreGameState();
+    }
+  }
+
+  // Sync state after page restore from cache
+  syncStateAfterRestore() {
+    this.logger.info("Syncing state after page restore from cache");
+    
+    // Check if we have a valid token
+    if (!this.token) {
+      this.logger.info("No token found after restore, staying on login screen");
+      return;
+    }
+
+    // If we're on login screen but have a token, try to restore
+    if (this.currentScreen === "login-screen") {
+      this.logger.info("On login screen with token after restore - attempting auto-login");
+      this.loadTeamData().then(() => {
+        this.showScreen("game-screen");
+        this.updateGameUI();
+        this.restoreGameState();
+      }).catch((error) => {
+        this.logger.error("Failed to restore after cache restore", { error: error.message });
+      });
+    } else {
+      // We're already in the game, just sync with server
+      this.syncWithServer();
+    }
+  }
+
+  // Sync with other browser tabs
+  syncWithOtherTabs(key, newValue) {
+    this.logger.info("Syncing with other tabs", { key, hasNewValue: !!newValue });
+    
+    if (key === 'tuna_game_state' && newValue) {
+      try {
+        const gameState = JSON.parse(newValue);
+        this.logger.info("Received game state from other tab", {
+          currentScreen: gameState.currentScreen,
+          gameState: gameState.gameState
+        });
+        
+        // Only sync if the state is more recent or different
+        if (gameState.currentScreen !== this.currentScreen) {
+          this.logger.info("Screen changed in other tab, updating current screen");
+          this.currentScreen = gameState.currentScreen;
+          this.showAppropriateContent();
+        }
+      } catch (error) {
+        this.logger.error("Error parsing game state from other tab", { error: error.message });
+      }
+    }
+  }
+
+  // Sync with server when connection is restored
+  async syncWithServer() {
+    if (!this.teamData) {
+      this.logger.debug("No team data, skipping server sync");
+      return;
+    }
+
+    try {
+      this.logger.info("Syncing with server after connection restore");
+      const response = await this.apiRequest("/game/status");
+      
+      if (response.success) {
+        this.logger.info("Server sync successful", {
+          currentPosition: response.data.currentPosition,
+          gameState: response.data.gameState
+        });
+        
+        // Update our state with server data
+        this.teamData.currentPosition = response.data.currentPosition;
+        this.teamData.totalScore = response.data.totalScore;
+        
+        // Show appropriate content based on server state
+        this.showAppropriateContent();
+      }
+    } catch (error) {
+      this.logger.error("Failed to sync with server", { error: error.message });
+    }
   }
 
   // WebSocket Methods

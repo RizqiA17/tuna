@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Events Test - Tuna Adventure Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .test-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .test-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .test-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .test-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .test-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .event-log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .event-log .event {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #007bff;
+            background: white;
+        }
+        .event-log .event.beforeunload {
+            border-left-color: #dc3545;
+        }
+        .event-log .event.visibilitychange {
+            border-left-color: #28a745;
+        }
+        .event-log .event.storage {
+            border-left-color: #ffc107;
+        }
+        .event-log .event.online {
+            border-left-color: #17a2b8;
+        }
+        .event-log .event.offline {
+            border-left-color: #6c757d;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-online {
+            background: #28a745;
+        }
+        .status-offline {
+            background: #dc3545;
+        }
+        .status-hidden {
+            background: #ffc107;
+        }
+        .status-visible {
+            background: #17a2b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Browser Events Test - Tuna Adventure Game</h1>
+        <p>Test page untuk memverifikasi browser event handlers yang baru ditambahkan untuk optimal state saving.</p>
+
+        <div class="test-section">
+            <h3>📊 Current Status</h3>
+            <div id="currentStatus">
+                <div>Loading status...</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 Event Simulation Tests</h3>
+            <p>Test berbagai browser events untuk memastikan state saving bekerja dengan benar:</p>
+            
+            <button class="test-button" onclick="simulateBeforeUnload()">Test beforeunload Event</button>
+            <button class="test-button" onclick="simulateVisibilityChange()">Test visibilitychange Event</button>
+            <button class="test-button" onclick="simulatePageHide()">Test pagehide Event</button>
+            <button class="test-button" onclick="simulatePageShow()">Test pageshow Event</button>
+            <button class="test-button" onclick="simulateStorageEvent()">Test storage Event</button>
+            <button class="test-button" onclick="simulateOnlineEvent()">Test online Event</button>
+            <button class="test-button" onclick="simulateOfflineEvent()">Test offline Event</button>
+            
+            <div id="testResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔄 State Management Tests</h3>
+            <p>Test state saving dan restoration:</p>
+            
+            <button class="test-button" onclick="testStateSaving()">Test State Saving</button>
+            <button class="test-button" onclick="testStateRestoration()">Test State Restoration</button>
+            <button class="test-button" onclick="testDebouncedSaving()">Test Debounced Saving</button>
+            <button class="test-button" onclick="testMultiTabSync()">Test Multi-Tab Sync</button>
+            
+            <div id="stateTestResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 Event Log</h3>
+            <p>Real-time log dari browser events:</p>
+            <div id="eventLog" class="event-log">
+                <div class="event">Event log initialized...</div>
+            </div>
+            <button class="test-button" onclick="clearEventLog()">Clear Log</button>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Debug Tools</h3>
+            <p>Tools untuk debugging dan monitoring:</p>
+            
+            <button class="test-button" onclick="showCurrentState()">Show Current State</button>
+            <button class="test-button" onclick="showLocalStorage()">Show LocalStorage</button>
+            <button class="test-button" onclick="clearAllState()">Clear All State</button>
+            <button class="test-button" onclick="exportState()">Export State</button>
+            
+            <div id="debugResults"></div>
+        </div>
+    </div>
+
+    <script>
+        // Event logging system
+        let eventLog = [];
+        let testResults = [];
+
+        function logEvent(eventType, details = {}) {
+            const timestamp = new Date().toLocaleTimeString();
+            const event = {
+                timestamp,
+                type: eventType,
+                details,
+                id: Date.now()
+            };
+            
+            eventLog.push(event);
+            updateEventLogDisplay();
+            
+            console.log(`[${timestamp}] ${eventType}:`, details);
+        }
+
+        function updateEventLogDisplay() {
+            const logContainer = document.getElementById('eventLog');
+            const recentEvents = eventLog.slice(-20); // Show last 20 events
+            
+            logContainer.innerHTML = recentEvents.map(event => 
+                `<div class="event ${event.type}">
+                    <strong>[${event.timestamp}]</strong> ${event.type}
+                    ${Object.keys(event.details).length > 0 ? 
+                        `<br><small>${JSON.stringify(event.details, null, 2)}</small>` : ''}
+                </div>`
+            ).join('');
+            
+            // Auto-scroll to bottom
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearEventLog() {
+            eventLog = [];
+            updateEventLogDisplay();
+            logEvent('log-cleared', { message: 'Event log cleared' });
+        }
+
+        // Status monitoring
+        function updateStatus() {
+            const status = {
+                online: navigator.onLine,
+                visibility: document.visibilityState,
+                hidden: document.hidden,
+                localStorage: {
+                    gameState: !!localStorage.getItem('tuna_game_state'),
+                    timerState: !!localStorage.getItem('tuna_timer_state'),
+                    token: !!localStorage.getItem('tuna_token'),
+                    adminState: !!localStorage.getItem('tuna_admin_state')
+                },
+                timestamp: new Date().toLocaleTimeString()
+            };
+
+            const statusHtml = `
+                <div>
+                    <span class="status-indicator ${status.online ? 'status-online' : 'status-offline'}"></span>
+                    <strong>Network:</strong> ${status.online ? 'Online' : 'Offline'}
+                </div>
+                <div>
+                    <span class="status-indicator ${status.hidden ? 'status-hidden' : 'status-visible'}"></span>
+                    <strong>Page Visibility:</strong> ${status.visibility} ${status.hidden ? '(Hidden)' : '(Visible)'}
+                </div>
+                <div><strong>LocalStorage Status:</strong></div>
+                <ul>
+                    <li>Game State: ${status.localStorage.gameState ? '✅ Present' : '❌ Not found'}</li>
+                    <li>Timer State: ${status.localStorage.timerState ? '✅ Present' : '❌ Not found'}</li>
+                    <li>Token: ${status.localStorage.token ? '✅ Present' : '❌ Not found'}</li>
+                    <li>Admin State: ${status.localStorage.adminState ? '✅ Present' : '❌ Not found'}</li>
+                </ul>
+                <div><small>Last updated: ${status.timestamp}</small></div>
+            `;
+
+            document.getElementById('currentStatus').innerHTML = statusHtml;
+        }
+
+        // Event simulation functions
+        function simulateBeforeUnload() {
+            logEvent('beforeunload', { simulated: true });
+            
+            // Simulate the event
+            const event = new Event('beforeunload');
+            window.dispatchEvent(event);
+            
+            showTestResult('beforeunload', 'success', 'beforeunload event simulated successfully');
+        }
+
+        function simulateVisibilityChange() {
+            logEvent('visibilitychange', { simulated: true, hidden: document.hidden });
+            
+            // Simulate visibility change
+            Object.defineProperty(document, 'hidden', {
+                writable: true,
+                value: !document.hidden
+            });
+            
+            const event = new Event('visibilitychange');
+            document.dispatchEvent(event);
+            
+            // Restore original state
+            Object.defineProperty(document, 'hidden', {
+                writable: true,
+                value: !document.hidden
+            });
+            
+            showTestResult('visibilitychange', 'success', 'visibilitychange event simulated successfully');
+        }
+
+        function simulatePageHide() {
+            logEvent('pagehide', { simulated: true });
+            
+            const event = new Event('pagehide');
+            event.persisted = false;
+            window.dispatchEvent(event);
+            
+            showTestResult('pagehide', 'success', 'pagehide event simulated successfully');
+        }
+
+        function simulatePageShow() {
+            logEvent('pageshow', { simulated: true });
+            
+            const event = new Event('pageshow');
+            event.persisted = false;
+            window.dispatchEvent(event);
+            
+            showTestResult('pageshow', 'success', 'pageshow event simulated successfully');
+        }
+
+        function simulateStorageEvent() {
+            logEvent('storage', { simulated: true, key: 'tuna_game_state' });
+            
+            // Create a mock storage event
+            const event = new StorageEvent('storage', {
+                key: 'tuna_game_state',
+                newValue: JSON.stringify({ test: true, timestamp: Date.now() }),
+                oldValue: null,
+                storageArea: localStorage
+            });
+            
+            window.dispatchEvent(event);
+            
+            showTestResult('storage', 'success', 'storage event simulated successfully');
+        }
+
+        function simulateOnlineEvent() {
+            logEvent('online', { simulated: true });
+            
+            const event = new Event('online');
+            window.dispatchEvent(event);
+            
+            showTestResult('online', 'success', 'online event simulated successfully');
+        }
+
+        function simulateOfflineEvent() {
+            logEvent('offline', { simulated: true });
+            
+            const event = new Event('offline');
+            window.dispatchEvent(event);
+            
+            showTestResult('offline', 'success', 'offline event simulated successfully');
+        }
+
+        // State management tests
+        function testStateSaving() {
+            logEvent('state-saving-test', { action: 'start' });
+            
+            // Create mock game state
+            const mockGameState = {
+                currentScreen: 'scenario-content',
+                gameState: 'running',
+                teamData: { id: 1, name: 'Test Team', currentPosition: 2 },
+                currentScenario: { id: 1, title: 'Test Scenario' },
+                timestamp: Date.now()
+            };
+            
+            try {
+                localStorage.setItem('tuna_game_state', JSON.stringify(mockGameState));
+                logEvent('state-saving-test', { action: 'saved', state: mockGameState });
+                showStateTestResult('state-saving', 'success', 'Game state saved successfully');
+            } catch (error) {
+                logEvent('state-saving-test', { action: 'error', error: error.message });
+                showStateTestResult('state-saving', 'error', 'Failed to save game state: ' + error.message);
+            }
+        }
+
+        function testStateRestoration() {
+            logEvent('state-restoration-test', { action: 'start' });
+            
+            const savedState = localStorage.getItem('tuna_game_state');
+            if (savedState) {
+                try {
+                    const gameState = JSON.parse(savedState);
+                    logEvent('state-restoration-test', { action: 'restored', state: gameState });
+                    showStateTestResult('state-restoration', 'success', 'Game state restored successfully');
+                } catch (error) {
+                    logEvent('state-restoration-test', { action: 'error', error: error.message });
+                    showStateTestResult('state-restoration', 'error', 'Failed to restore game state: ' + error.message);
+                }
+            } else {
+                showStateTestResult('state-restoration', 'warning', 'No saved state found to restore');
+            }
+        }
+
+        function testDebouncedSaving() {
+            logEvent('debounced-saving-test', { action: 'start' });
+            
+            let saveCount = 0;
+            const startTime = Date.now();
+            
+            // Simulate rapid state changes
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    saveCount++;
+                    logEvent('debounced-saving-test', { 
+                        action: 'save-attempt', 
+                        count: saveCount,
+                        timestamp: Date.now()
+                    });
+                }, i * 100); // 100ms intervals
+            }
+            
+            setTimeout(() => {
+                const duration = Date.now() - startTime;
+                logEvent('debounced-saving-test', { 
+                    action: 'completed', 
+                    saveCount, 
+                    duration 
+                });
+                showStateTestResult('debounced-saving', 'success', 
+                    `Debounced saving test completed. ${saveCount} save attempts in ${duration}ms`);
+            }, 1000);
+        }
+
+        function testMultiTabSync() {
+            logEvent('multi-tab-sync-test', { action: 'start' });
+            
+            // Simulate storage event from another tab
+            const mockGameState = {
+                currentScreen: 'decision-content',
+                gameState: 'running',
+                teamData: { id: 1, name: 'Test Team', currentPosition: 3 },
+                timestamp: Date.now()
+            };
+            
+            try {
+                localStorage.setItem('tuna_game_state', JSON.stringify(mockGameState));
+                
+                // Trigger storage event
+                const event = new StorageEvent('storage', {
+                    key: 'tuna_game_state',
+                    newValue: JSON.stringify(mockGameState),
+                    oldValue: null,
+                    storageArea: localStorage
+                });
+                
+                window.dispatchEvent(event);
+                
+                logEvent('multi-tab-sync-test', { action: 'sync-triggered', state: mockGameState });
+                showStateTestResult('multi-tab-sync', 'success', 'Multi-tab sync event triggered successfully');
+            } catch (error) {
+                logEvent('multi-tab-sync-test', { action: 'error', error: error.message });
+                showStateTestResult('multi-tab-sync', 'error', 'Failed to trigger multi-tab sync: ' + error.message);
+            }
+        }
+
+        // Debug tools
+        function showCurrentState() {
+            const state = {
+                online: navigator.onLine,
+                visibility: document.visibilityState,
+                hidden: document.hidden,
+                localStorage: {
+                    gameState: localStorage.getItem('tuna_game_state'),
+                    timerState: localStorage.getItem('tuna_timer_state'),
+                    token: localStorage.getItem('tuna_token'),
+                    adminState: localStorage.getItem('tuna_admin_state')
+                },
+                timestamp: new Date().toISOString()
+            };
+            
+            document.getElementById('debugResults').innerHTML = `
+                <div class="test-result test-info">
+                    <strong>Current State:</strong><br>
+                    <pre>${JSON.stringify(state, null, 2)}</pre>
+                </div>
+            `;
+            
+            logEvent('debug-current-state', { state });
+        }
+
+        function showLocalStorage() {
+            const storage = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                storage[key] = localStorage.getItem(key);
+            }
+            
+            document.getElementById('debugResults').innerHTML = `
+                <div class="test-result test-info">
+                    <strong>LocalStorage Contents:</strong><br>
+                    <pre>${JSON.stringify(storage, null, 2)}</pre>
+                </div>
+            `;
+            
+            logEvent('debug-localstorage', { storage });
+        }
+
+        function clearAllState() {
+            localStorage.clear();
+            document.getElementById('debugResults').innerHTML = `
+                <div class="test-result test-warning">
+                    <strong>All state cleared!</strong><br>
+                    All localStorage data has been removed.
+                </div>
+            `;
+            
+            logEvent('debug-clear-state', { action: 'all-state-cleared' });
+            updateStatus();
+        }
+
+        function exportState() {
+            const state = {
+                localStorage: {},
+                timestamp: new Date().toISOString(),
+                userAgent: navigator.userAgent,
+                online: navigator.onLine,
+                visibility: document.visibilityState
+            };
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                state.localStorage[key] = localStorage.getItem(key);
+            }
+            
+            const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tuna-game-state-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            document.getElementById('debugResults').innerHTML = `
+                <div class="test-result test-success">
+                    <strong>State exported!</strong><br>
+                    State data has been downloaded as JSON file.
+                </div>
+            `;
+            
+            logEvent('debug-export-state', { state });
+        }
+
+        // Result display functions
+        function showTestResult(testName, type, message) {
+            const results = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result test-${type}`;
+            resultDiv.innerHTML = `<strong>${testName}:</strong> ${message}`;
+            results.appendChild(resultDiv);
+            
+            logEvent('test-result', { testName, type, message });
+        }
+
+        function showStateTestResult(testName, type, message) {
+            const results = document.getElementById('stateTestResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result test-${type}`;
+            resultDiv.innerHTML = `<strong>${testName}:</strong> ${message}`;
+            results.appendChild(resultDiv);
+            
+            logEvent('state-test-result', { testName, type, message });
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            logEvent('page-loaded', { timestamp: new Date().toISOString() });
+            updateStatus();
+            
+            // Set up real event listeners for monitoring
+            window.addEventListener('beforeunload', () => {
+                logEvent('beforeunload', { real: true });
+            });
+            
+            document.addEventListener('visibilitychange', () => {
+                logEvent('visibilitychange', { real: true, hidden: document.hidden });
+            });
+            
+            window.addEventListener('storage', (event) => {
+                logEvent('storage', { real: true, key: event.key, newValue: !!event.newValue });
+            });
+            
+            window.addEventListener('online', () => {
+                logEvent('online', { real: true });
+                updateStatus();
+            });
+            
+            window.addEventListener('offline', () => {
+                logEvent('offline', { real: true });
+                updateStatus();
+            });
+            
+            // Update status every 5 seconds
+            setInterval(updateStatus, 5000);
+        });
+    </script>
+</body>
+</html>
