@@ -28,6 +28,30 @@ class TunaAdventureGame {
     this.isSavingState = false; // Flag to prevent multiple simultaneous saves
     this.lastSaveTime = 0; // Track last save time for debouncing
     this.saveDebounceDelay = 1000; // 1 second debounce
+    
+    // Multi-tab conflict resolution (simple approach)
+    this.tabId = this.generateTabId(); // Unique tab identifier
+    this.lastSyncTime = Date.now(); // Track last sync time
+    this.conflictResolutionEnabled = true; // Enable conflict resolution
+    
+    // Basic offline handling (simple approach)
+    this.isOffline = false; // Track offline status
+    this.offlineQueue = []; // Simple queue for offline operations
+    this.maxOfflineQueueSize = 10; // Limit queue size
+    
+    // State validation and error recovery (simple approach)
+    this.stateValidationEnabled = true; // Enable state validation
+    this.maxRetryAttempts = 3; // Max retry attempts for failed operations
+    
+    // Performance monitoring (lightweight)
+    this.performanceMetrics = {
+      saveCount: 0,
+      restoreCount: 0,
+      syncCount: 0,
+      errorCount: 0,
+      startTime: Date.now()
+    };
+    this.performanceMonitoringEnabled = true; // Enable performance monitoring
 
     this.init();
   }
@@ -655,12 +679,15 @@ class TunaAdventureGame {
     // Handle online/offline events
     window.addEventListener('online', () => {
       this.logger.info("Network connection restored");
+      this.isOffline = false;
       this.showNotification('Koneksi internet telah pulih', 'success');
       this.syncWithServer();
+      this.processOfflineQueue();
     });
 
     window.addEventListener('offline', () => {
       this.logger.info("Network connection lost");
+      this.isOffline = true;
       this.showNotification('Koneksi internet terputus. Data akan disinkronkan saat online kembali.', 'warning');
     });
 
@@ -789,27 +816,292 @@ class TunaAdventureGame {
     }
   }
 
-  // Sync with other browser tabs
+  // Generate unique tab ID
+  generateTabId() {
+    return `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  // Sync with other browser tabs (with simple conflict resolution)
   syncWithOtherTabs(key, newValue) {
-    this.logger.info("Syncing with other tabs", { key, hasNewValue: !!newValue });
+    this.logger.info("Syncing with other tabs", { 
+      key, 
+      hasNewValue: !!newValue,
+      tabId: this.tabId,
+      currentScreen: this.currentScreen
+    });
     
     if (key === 'tuna_game_state' && newValue) {
       try {
         const gameState = JSON.parse(newValue);
+        const incomingTabId = gameState.tabId;
+        const incomingTimestamp = gameState.timestamp || 0;
+        
         this.logger.info("Received game state from other tab", {
+          incomingTabId,
+          incomingTimestamp,
+          currentTimestamp: this.lastSyncTime,
           currentScreen: gameState.currentScreen,
           gameState: gameState.gameState
         });
         
-        // Only sync if the state is more recent or different
+        // Simple conflict resolution: ignore if same tab or older timestamp
+        if (incomingTabId === this.tabId) {
+          this.logger.debug("Ignoring state from same tab");
+          return;
+        }
+        
+        if (incomingTimestamp <= this.lastSyncTime) {
+          this.logger.debug("Ignoring older state from other tab");
+          return;
+        }
+        
+        // Update state if it's newer and different
         if (gameState.currentScreen !== this.currentScreen) {
-          this.logger.info("Screen changed in other tab, updating current screen");
+          this.logger.info("Updating state from other tab", {
+            fromTab: incomingTabId,
+            toTab: this.tabId,
+            oldScreen: this.currentScreen,
+            newScreen: gameState.currentScreen
+          });
+          
           this.currentScreen = gameState.currentScreen;
+          this.gameState = gameState.gameState;
+          this.currentScenario = gameState.currentScenario;
+          this.teamData = gameState.teamData;
+          this.lastSyncTime = incomingTimestamp;
+          
           this.showAppropriateContent();
         }
       } catch (error) {
         this.logger.error("Error parsing game state from other tab", { error: error.message });
       }
+    }
+  }
+
+  // Basic offline queue management
+  addToOfflineQueue(operation) {
+    if (this.isOffline) {
+      if (this.offlineQueue.length >= this.maxOfflineQueueSize) {
+        // Remove oldest operation if queue is full
+        this.offlineQueue.shift();
+        this.logger.warn("Offline queue full, removed oldest operation");
+      }
+      
+      this.offlineQueue.push({
+        ...operation,
+        timestamp: Date.now()
+      });
+      
+      this.logger.info("Added operation to offline queue", {
+        operation: operation.type,
+        queueSize: this.offlineQueue.length
+      });
+      
+      this.showNotification(`Operasi ditambahkan ke antrian offline (${this.offlineQueue.length} operasi)`, 'info');
+    } else {
+      this.logger.info("Online - executing operation immediately", { operation: operation.type });
+      this.executeOfflineOperation(operation);
+    }
+  }
+
+  // Process offline queue when connection is restored
+  async processOfflineQueue() {
+    if (this.offlineQueue.length === 0) {
+      this.logger.info("No offline operations to process");
+      return;
+    }
+
+    this.logger.info("Processing offline queue", { 
+      queueLength: this.offlineQueue.length 
+    });
+
+    const operations = [...this.offlineQueue];
+    this.offlineQueue = [];
+
+    for (const operation of operations) {
+      try {
+        await this.executeOfflineOperation(operation);
+        this.logger.info("Offline operation completed", {
+          type: operation.type
+        });
+      } catch (error) {
+        this.logger.error("Failed to execute offline operation", {
+          type: operation.type,
+          error: error.message
+        });
+      }
+    }
+
+    this.showNotification('Antrian offline telah diproses', 'success');
+  }
+
+  // Execute offline operation
+  async executeOfflineOperation(operation) {
+    this.logger.info("Executing offline operation", { type: operation.type });
+
+    switch (operation.type) {
+      case 'save_game_state':
+        localStorage.setItem('tuna_game_state', JSON.stringify(operation.data));
+        break;
+      case 'save_timer_state':
+        localStorage.setItem('tuna_timer_state', JSON.stringify(operation.data));
+        break;
+      case 'sync_with_server':
+        await this.syncWithServer();
+        break;
+      default:
+        this.logger.warn("Unknown offline operation type", { type: operation.type });
+    }
+  }
+
+  // Simple state validation
+  validateGameState(state) {
+    if (!this.stateValidationEnabled) {
+      return { isValid: true };
+    }
+
+    try {
+      // Basic validation checks
+      if (!state || typeof state !== 'object') {
+        return { isValid: false, error: 'Invalid state object' };
+      }
+
+      if (state.currentScreen && typeof state.currentScreen !== 'string') {
+        return { isValid: false, error: 'Invalid currentScreen type' };
+      }
+
+      if (state.gameState && !['waiting', 'running', 'ended'].includes(state.gameState)) {
+        return { isValid: false, error: 'Invalid gameState value' };
+      }
+
+      if (state.teamData && (!state.teamData.id || !state.teamData.name)) {
+        return { isValid: false, error: 'Invalid teamData structure' };
+      }
+
+      return { isValid: true };
+    } catch (error) {
+      return { isValid: false, error: error.message };
+    }
+  }
+
+  // Simple error recovery
+  async recoverFromError(error, operation) {
+    this.logger.error("Error occurred, attempting recovery", {
+      error: error.message,
+      operation: operation
+    });
+
+    try {
+      // Simple recovery: clear corrupted state and restore from server
+      if (operation === 'restore_game_state') {
+        this.logger.info("Clearing corrupted state and attempting server restore");
+        this.clearGameState();
+        await this.syncWithServer();
+        return true;
+      }
+
+      // For other operations, just log and continue
+      this.logger.warn("No specific recovery strategy for operation", { operation });
+      return false;
+    } catch (recoveryError) {
+      this.logger.error("Recovery failed", { error: recoveryError.message });
+      return false;
+    }
+  }
+
+  // Track performance metrics
+  trackPerformance(operation, success = true) {
+    if (!this.performanceMonitoringEnabled) {
+      return;
+    }
+
+    switch (operation) {
+      case 'save':
+        this.performanceMetrics.saveCount++;
+        break;
+      case 'restore':
+        this.performanceMetrics.restoreCount++;
+        break;
+      case 'sync':
+        this.performanceMetrics.syncCount++;
+        break;
+      case 'error':
+        this.performanceMetrics.errorCount++;
+        break;
+    }
+
+    // Log performance summary every 10 operations
+    const totalOps = this.performanceMetrics.saveCount + 
+                     this.performanceMetrics.restoreCount + 
+                     this.performanceMetrics.syncCount;
+    
+    if (totalOps % 10 === 0) {
+      this.logPerformanceSummary();
+    }
+  }
+
+  // Log performance summary
+  logPerformanceSummary() {
+    const uptime = Date.now() - this.performanceMetrics.startTime;
+    const uptimeMinutes = Math.round(uptime / 60000);
+    
+    this.logger.info("Performance metrics summary", {
+      uptime: `${uptimeMinutes} minutes`,
+      saves: this.performanceMetrics.saveCount,
+      restores: this.performanceMetrics.restoreCount,
+      syncs: this.performanceMetrics.syncCount,
+      errors: this.performanceMetrics.errorCount,
+      tabId: this.tabId
+    });
+  }
+
+  // Enhanced save game state with validation and performance tracking
+  saveGameState() {
+    if (!this.teamData) {
+      this.logger.warn("No team data available for saving");
+      return;
+    }
+
+    const gameState = {
+      teamData: this.teamData,
+      currentScenario: this.currentScenario,
+      gameState: this.gameState,
+      currentScreen: this.currentScreen,
+      currentScenarioPosition: this.currentScenarioPosition,
+      resultsData: this.resultsData,
+      tabId: this.tabId,
+      timestamp: Date.now()
+    };
+
+    // Validate state before saving
+    const validation = this.validateGameState(gameState);
+    if (!validation.isValid) {
+      this.logger.error("Game state validation failed", { error: validation.error });
+      this.showNotification('State tidak valid, tidak dapat disimpan', 'error');
+      this.trackPerformance('error');
+      return;
+    }
+
+    try {
+      localStorage.setItem("tuna_game_state", JSON.stringify(gameState));
+      
+      // Verify the save worked
+      const savedState = localStorage.getItem("tuna_game_state");
+      if (savedState) {
+        this.logger.info("Game state saved successfully", {
+          tabId: this.tabId,
+          timestamp: gameState.timestamp
+        });
+        this.trackPerformance('save', true);
+      } else {
+        this.logger.error("Failed to save game state");
+        this.trackPerformance('error');
+        throw new Error("Save verification failed");
+      }
+    } catch (error) {
+      this.logger.error("Error saving game state", { error: error.message });
+      this.trackPerformance('error');
+      this.recoverFromError(error, 'save_game_state');
     }
   }
 
@@ -836,9 +1128,12 @@ class TunaAdventureGame {
         
         // Show appropriate content based on server state
         this.showAppropriateContent();
+        
+        this.trackPerformance('sync', true);
       }
     } catch (error) {
       this.logger.error("Failed to sync with server", { error: error.message });
+      this.trackPerformance('error');
     }
   }
 
@@ -2241,6 +2536,7 @@ class TunaAdventureGame {
                   
                   // Skip timer restoration and go straight to showing content
                   this.showAppropriateContent();
+                  this.trackPerformance('restore', true);
                   return true;
                 }
                 
@@ -2279,6 +2575,7 @@ class TunaAdventureGame {
                         
                         // Skip the rest of the restoration logic
                         this.showAppropriateContent();
+                        this.trackPerformance('restore', true);
                         return true;
                       }
                     } catch (error) {
@@ -2746,6 +3043,7 @@ class TunaAdventureGame {
 
             // Show appropriate content immediately (like handleLogin does)
             this.showAppropriateContent();
+            this.trackPerformance('restore', true);
 
             return true;
           }
@@ -2789,6 +3087,7 @@ class TunaAdventureGame {
 
             // Show appropriate content immediately (like handleLogin does)
             this.showAppropriateContent();
+            this.trackPerformance('restore', true);
 
             return true;
           } else {
@@ -2825,6 +3124,7 @@ class TunaAdventureGame {
           
           // Try to restore timer
           this.restoreTimerState();
+          this.trackPerformance('restore', true);
           
           return true;
         }
@@ -2835,6 +3135,7 @@ class TunaAdventureGame {
       }
     }
 
+    this.trackPerformance('restore', false);
     return false;
   }
 
