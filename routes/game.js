@@ -288,25 +288,32 @@ router.post("/submit-decision", gameRateLimit, async (req, res) => {
     const team = req.team;
     const { position, decision, argumentation } = req.body;
 
-    if (!position || !decision || !argumentation) {
+    // Only require position. Allow decision and argumentation to be empty strings (for auto-submit)
+    const positionNum = parseInt(position);
+    if (!position || position === undefined || position === null || isNaN(positionNum) || positionNum < 1 || positionNum > 7) {
       return res.status(400).json({
         success: false,
-        message: "Position, decision, and argumentation are required",
+        message: "Valid position (1-7) is required",
       });
     }
 
+    // Normalize decision and argumentation to empty strings if missing/undefined/null
+    // This allows auto-submit with empty fields
+    const normalizedDecision = (decision !== undefined && decision !== null) ? String(decision) : "";
+    const normalizedArgumentation = (argumentation !== undefined && argumentation !== null) ? String(argumentation) : "";
+
     // Check if team has access to this position
-    if (team.current_position < position) {
+    if (team.current_position < positionNum) {
       return res.status(403).json({
         success: false,
-        message: `You must complete position ${position - 1} first`,
+        message: `You must complete position ${positionNum - 1} first`,
       });
     }
 
     // Check if already completed
     const existingDecision = await executeQuery(
       "SELECT id FROM team_decisions WHERE team_id = ? AND position = ?",
-      [team.id, position]
+      [team.id, positionNum]
     );
 
     if (existingDecision.length > 0) {
@@ -319,7 +326,7 @@ router.post("/submit-decision", gameRateLimit, async (req, res) => {
     // Get standard answer for scoring
     const scenario = await executeQuery(
       "SELECT standard_answer, standard_reasoning, max_score FROM game_scenarios WHERE position = ?",
-      [position]
+      [positionNum]
     );
 
     if (!scenario.length) {
@@ -331,8 +338,8 @@ router.post("/submit-decision", gameRateLimit, async (req, res) => {
 
     // Calculate score based on similarity to standard answer
     const score = calculateScore(
-      decision,
-      argumentation,
+      normalizedDecision,
+      normalizedArgumentation,
       scenario[0].standard_answer,
       scenario[0].standard_reasoning
     );
@@ -342,14 +349,14 @@ router.post("/submit-decision", gameRateLimit, async (req, res) => {
     await connection.beginTransaction();
 
     try {
-      // Save decision
+      // Save decision (with normalized values - empty strings are allowed)
       await connection.execute(
         "INSERT INTO team_decisions (team_id, position, decision, reasoning, score) VALUES (?, ?, ?, ?, ?)",
-        [team.id, position, decision, argumentation, score]
+        [team.id, positionNum, normalizedDecision, normalizedArgumentation, score]
       );
 
       // Update team position and total score
-      const newPosition = position + 1;
+      const newPosition = positionNum + 1;
       const newTotalScore = team.total_score + score;
 
       await connection.execute(
@@ -362,7 +369,7 @@ router.post("/submit-decision", gameRateLimit, async (req, res) => {
       // Get scenario data for result
       const scenarioData = await executeQuery(
         "SELECT standard_answer, standard_reasoning FROM game_scenarios WHERE position = ?",
-        [position]
+        [positionNum]
       );
 
       res.json({
@@ -375,10 +382,10 @@ router.post("/submit-decision", gameRateLimit, async (req, res) => {
           total_score: newTotalScore,
         },
         result: {
-          position: position,
+          position: positionNum,
           score: score,
-          teamDecision: decision,
-          teamArgumentation: argumentation,
+          teamDecision: normalizedDecision,
+          teamArgumentation: normalizedArgumentation,
           standardAnswer: scenarioData.length > 0 ? scenarioData[0].standard_answer : "Jawaban standar tidak tersedia",
           standardArgumentation: scenarioData.length > 0 ? scenarioData[0].standard_reasoning : "Penjelasan tidak tersedia",
         },

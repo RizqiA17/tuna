@@ -1784,29 +1784,26 @@ class TunaAdventureGame {
     }
 
     // Check if there are existing answers in the form fields
+    // Use whatever is in the fields - if empty, use empty strings
     const existingDecision = document.getElementById("decision")?.value?.trim() || "";
     const existingReasoning = document.getElementById("reasoning")?.value?.trim() || "";
     
-    let decision, argumentation;
+    // Use whatever values are in the form fields (even if empty or only one is filled)
+    // Server will accept empty strings and save them as empty
+    const decision = existingDecision;
+    const argumentation = existingReasoning;
     
-    if (existingDecision && existingReasoning) {
-      // Use existing answers if both fields have content
-      decision = existingDecision;
-      argumentation = existingReasoning;
-      console.log("📝 Using existing answers from form fields");
+    if (existingDecision || existingReasoning) {
+      console.log("📝 Using existing answers from form fields (may be partial)");
       this.logger.info("Using existing form data for auto-submit", {
         hasDecision: !!existingDecision,
-        hasReasoning: !!existingReasoning
+        hasReasoning: !!existingReasoning,
+        decisionLength: existingDecision.length,
+        reasoningLength: existingReasoning.length
       });
     } else {
-      // Send empty strings if no content in form fields
-      decision = "";
-      argumentation = "";
       console.log("⏰ No existing answers found, sending empty strings");
-      this.logger.info("No form data found, sending empty strings", {
-        hasDecision: !!existingDecision,
-        hasReasoning: !!existingReasoning
-      });
+      this.logger.info("No form data found, sending empty strings");
     }
 
     // Prepare auto-submit data
@@ -1862,12 +1859,14 @@ class TunaAdventureGame {
         await this.showResults(response.result);
         
         // Show appropriate notification based on whether existing answers were used
-        if (existingDecision && existingReasoning) {
+        if (existingDecision || existingReasoning) {
+          // At least one field had content (even if partial)
           this.showNotification(
             "Jawaban yang sudah diisi dikirim otomatis karena waktu habis!",
             "warning"
           );
         } else {
+          // Both fields were empty
           this.showNotification(
             "Jawaban kosong dikirim otomatis karena waktu habis!",
             "warning"
