@@ -5,7 +5,7 @@ class TunaAdventureGame {
     this.token = localStorage.getItem("tuna_token");
     this.teamData = null;
     this.currentScenario = null;
-    this.timeLeft = 900; // 15 minutes in seconds
+    this.timeLeft = 15; // 15 minutes in seconds
     this.timer = null;
     this.playerCount = 1;
     this.socket = null;
@@ -19,7 +19,7 @@ class TunaAdventureGame {
 
     // Timer persistence properties
     this.timerStartTime = null;
-    this.timerDuration = 900; // 15 minutes in seconds
+    this.timerDuration = 15; // 15 minutes in seconds
     this.isTimerActive = false;
     this.isTimerRestoring = false; // Flag to prevent multiple restoration
     this.currentScreen = "login-screen";
@@ -1566,7 +1566,7 @@ class TunaAdventureGame {
     this.currentScreen = "welcome-content";
     this.currentScenarioPosition = 0;
     this.currentScenario = null;
-    this.timeLeft = 900;
+    this.timeLeft = 15;
     this.stopTimer();
     this.clearTimerState();
 
@@ -1759,6 +1759,136 @@ class TunaAdventureGame {
     } catch (error) {
       this.showNotification(error.message, "error");
       this.startTimer(); // Restart timer on error
+    }
+  }
+
+  // Auto-submit dengan jawaban yang ada atau kosong saat timer habis
+  async autoSubmitOnTimeout() {
+    console.log("🚨 AUTO-SUBMIT TRIGGERED - Timer expired!");
+    this.logger.info("Auto-submitting due to timeout", {
+      currentScenario: this.currentScenario,
+      hasTeamData: !!this.teamData
+    });
+
+    // Check if we have current scenario and team data
+    if (!this.currentScenario || !this.teamData) {
+      this.logger.error("Cannot auto-submit: missing scenario or team data", {
+        hasScenario: !!this.currentScenario,
+        hasTeamData: !!this.teamData
+      });
+      this.showNotification(
+        "Tidak dapat mengirim jawaban otomatis. Silakan refresh halaman.",
+        "error"
+      );
+      return;
+    }
+
+    // Check if there are existing answers in the form fields
+    const existingDecision = document.getElementById("decision")?.value?.trim() || "";
+    const existingReasoning = document.getElementById("reasoning")?.value?.trim() || "";
+    
+    let decision, argumentation;
+    
+    if (existingDecision && existingReasoning) {
+      // Use existing answers if both fields have content
+      decision = existingDecision;
+      argumentation = existingReasoning;
+      console.log("📝 Using existing answers from form fields");
+      this.logger.info("Using existing form data for auto-submit", {
+        hasDecision: !!existingDecision,
+        hasReasoning: !!existingReasoning
+      });
+    } else {
+      // Send empty strings if no content in form fields
+      decision = "";
+      argumentation = "";
+      console.log("⏰ No existing answers found, sending empty strings");
+      this.logger.info("No form data found, sending empty strings", {
+        hasDecision: !!existingDecision,
+        hasReasoning: !!existingReasoning
+      });
+    }
+
+    // Prepare auto-submit data
+    const data = {
+      position: this.currentScenario.position,
+      decision: decision,
+      argumentation: argumentation
+    };
+
+    try {
+      console.log("🚀 Submitting timeout response...", data);
+      this.logger.info("Submitting timeout response", {
+        position: data.position,
+        decision: data.decision.substring(0, 50) + "...",
+        argumentation: data.argumentation.substring(0, 50) + "..."
+      });
+
+      const response = await this.apiRequest("/game/submit-decision", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+
+      if (response.success) {
+        // Update team data
+        this.teamData.totalScore = response.team.total_score;
+        this.teamData.currentPosition = response.team.current_position;
+
+        // Send progress update to admin
+        if (this.socket) {
+          const teamId = this.teamData.teamId || this.teamData.id;
+          this.socket.emit("team-progress", {
+            teamId: teamId,
+            currentPosition: this.teamData.currentPosition,
+            totalScore: this.teamData.totalScore,
+            isCompleted: this.teamData.currentPosition > 7,
+          });
+
+          this.socket.emit("team-decision", {
+            teamId: teamId,
+            position: this.currentScenario.position,
+            score: response.result.score,
+          });
+        }
+
+        // Update game state UI
+        this.updateGameStateUI();
+
+        // Update current screen state
+        this.currentScreen = "results-content";
+        this.saveGameState();
+
+        // Show results
+        await this.showResults(response.result);
+        
+        // Show appropriate notification based on whether existing answers were used
+        if (existingDecision && existingReasoning) {
+          this.showNotification(
+            "Jawaban yang sudah diisi dikirim otomatis karena waktu habis!",
+            "warning"
+          );
+        } else {
+          this.showNotification(
+            "Jawaban kosong dikirim otomatis karena waktu habis!",
+            "warning"
+          );
+        }
+
+        this.logger.info("Auto-submit successful", {
+          score: response.result.score,
+          newPosition: this.teamData.currentPosition,
+          newTotalScore: this.teamData.totalScore
+        });
+      }
+    } catch (error) {
+      this.logger.error("Auto-submit failed", {
+        error: error.message,
+        stack: error.stack
+      });
+      this.showNotification(
+        "Gagal mengirim jawaban otomatis. Silakan hubungi admin.",
+        "error"
+      );
     }
   }
 
@@ -2166,9 +2296,9 @@ class TunaAdventureGame {
       return;
     }
 
-    this.timeLeft = 900; // 15 minutes
+    this.timeLeft = 15; // 15 minutes
     this.timerStartTime = Date.now();
-    this.timerDuration = 900;
+    this.timerDuration = 15;
     this.isTimerActive = true;
 
     // Save timer state to localStorage
@@ -2182,11 +2312,15 @@ class TunaAdventureGame {
       this.saveTimerState();
 
       if (this.timeLeft <= 0) {
+        console.log("⏰ TIMER EXPIRED - Calling auto-submit...");
         this.stopTimer();
         this.showNotification(
-          "Waktu habis! Kirim keputusan sekarang.",
+          "Waktu habis! Jawaban akan dikirim otomatis.",
           "warning"
         );
+        // Auto-submit dengan jawaban kosong saat timer habis
+        console.log("🚀 Calling autoSubmitOnTimeout()...");
+        this.autoSubmitOnTimeout();
       }
     }, 1000);
 
@@ -2318,11 +2452,15 @@ class TunaAdventureGame {
               this.saveTimerState();
 
               if (this.timeLeft <= 0) {
+                console.log("⏰ TIMER EXPIRED (restored) - Calling auto-submit...");
                 this.stopTimer();
                 this.showNotification(
-                  "Waktu habis! Kirim keputusan sekarang.",
+                  "Waktu habis! Jawaban akan dikirim otomatis.",
                   "warning"
                 );
+                // Auto-submit dengan jawaban kosong saat timer habis
+                console.log("🚀 Calling autoSubmitOnTimeout() (restored)...");
+                this.autoSubmitOnTimeout();
               }
             }, 1000);
 

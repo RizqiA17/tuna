@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Timer Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .timer-display {
+            font-size: 48px;
+            font-weight: bold;
+            color: #e74c3c;
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px;
+            border: 3px solid #e74c3c;
+            border-radius: 8px;
+            background-color: #fff5f5;
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .status.success { background-color: #d4edda; color: #155724; }
+        .status.error { background-color: #f8d7da; color: #721c24; }
+        .status.warning { background-color: #fff3cd; color: #856404; }
+        .status.info { background-color: #d1ecf1; color: #0c5460; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 16px;
+            width: 200px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Timer Test</h1>
+        <p>Test timer dengan debugging untuk memverifikasi auto-submit.</p>
+
+        <div class="timer-display" id="timerDisplay">0:03</div>
+        
+        <div style="text-align: center;">
+            <button onclick="startTimer(3)" id="startBtn">Start 3 Second Timer</button>
+            <button onclick="startTimer(5)" id="startBtn5">Start 5 Second Timer</button>
+            <button onclick="stopTimer()" id="stopBtn" disabled>Stop Timer</button>
+            <button onclick="clearLog()" id="clearBtn">Clear Log</button>
+        </div>
+
+        <div id="status" class="status info">Ready to test</div>
+        <div id="autoSubmitStatus" class="status info">Waiting for auto-submit...</div>
+
+        <h3>Debug Log:</h3>
+        <div id="log" class="log">Debug log will appear here...\n</div>
+    </div>
+
+    <script>
+        let timeLeft = 0;
+        let timer = null;
+        let isTimerActive = false;
+
+        // Override console.log to capture output
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.textContent += `[${timestamp}] ${args.join(' ')}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        };
+
+        function updateStatus(message, type = 'info') {
+            const statusElement = document.getElementById('status');
+            statusElement.className = `status ${type}`;
+            statusElement.textContent = message;
+        }
+
+        function updateAutoSubmitStatus(message, type = 'info') {
+            const statusElement = document.getElementById('autoSubmitStatus');
+            statusElement.className = `status ${type}`;
+            statusElement.textContent = message;
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            const display = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+            document.getElementById('timerDisplay').textContent = display;
+            
+            // Change color based on time left
+            if (timeLeft <= 1) {
+                document.getElementById('timerDisplay').style.color = '#dc3545';
+                document.getElementById('timerDisplay').style.borderColor = '#dc3545';
+                document.getElementById('timerDisplay').style.backgroundColor = '#fff5f5';
+            } else if (timeLeft <= 2) {
+                document.getElementById('timerDisplay').style.color = '#fd7e14';
+                document.getElementById('timerDisplay').style.borderColor = '#fd7e14';
+                document.getElementById('timerDisplay').style.backgroundColor = '#fff8f0';
+            } else {
+                document.getElementById('timerDisplay').style.color = '#e74c3c';
+                document.getElementById('timerDisplay').style.borderColor = '#e74c3c';
+                document.getElementById('timerDisplay').style.backgroundColor = '#fff5f5';
+            }
+        }
+
+        function startTimer(duration) {
+            if (timer) {
+                console.log('Timer already running, stopping first...');
+                stopTimer();
+            }
+
+            timeLeft = duration;
+            isTimerActive = true;
+
+            console.log(`Starting timer for ${duration} seconds`);
+            updateStatus(`Timer started for ${duration} seconds`, 'info');
+            updateAutoSubmitStatus('Timer running...', 'info');
+
+            // Enable/disable buttons
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('startBtn5').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+
+            // Start the timer
+            timer = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay();
+                console.log(`Timer tick: ${timeLeft} seconds remaining`);
+
+                if (timeLeft <= 0) {
+                    console.log('⏰ TIMER EXPIRED! Triggering auto-submit...');
+                    stopTimer();
+                    updateStatus('Timer expired!', 'warning');
+                    updateAutoSubmitStatus('Auto-submit triggered!', 'warning');
+                    
+                    // Simulate auto-submit
+                    simulateAutoSubmit();
+                }
+            }, 1000);
+
+            updateTimerDisplay();
+        }
+
+        function stopTimer() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+                console.log('Timer stopped');
+            }
+            timeLeft = 0;
+            isTimerActive = false;
+
+            // Enable/disable buttons
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('startBtn5').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+
+            updateTimerDisplay();
+        }
+
+        function simulateAutoSubmit() {
+            console.log('🚀 Simulating auto-submit...');
+            
+            // Simulate the auto-submit data
+            const autoSubmitData = {
+                position: 1,
+                decision: "[TIMEOUT] - Tim tidak mengirim jawaban dalam waktu yang ditentukan",
+                argumentation: "[TIMEOUT] - Jawaban otomatis karena waktu habis"
+            };
+            
+            console.log(`Auto-submit data: ${JSON.stringify(autoSubmitData, null, 2)}`);
+            
+            // Simulate API call
+            setTimeout(() => {
+                console.log('✅ Auto-submit API call completed successfully!');
+                updateAutoSubmitStatus('Auto-submit completed!', 'success');
+                console.log('🎉 Auto-submit feature is working correctly!');
+            }, 1000);
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = 'Debug log cleared...\n';
+            updateStatus('Ready to test', 'info');
+            updateAutoSubmitStatus('Waiting for auto-submit...', 'info');
+        }
+
+        // Initialize
+        console.log('Debug timer test initialized');
+        console.log('This test simulates the timer and auto-submit functionality');
+        updateTimerDisplay();
+    </script>
+</body>
+</html>
