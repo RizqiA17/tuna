@@ -10,6 +10,9 @@ const {
   createRateLimit,
 } = require("../middleware/validation");
 
+// Import state manager
+const stateManager = require("../server-state-manager");
+
 const router = express.Router();
 
 // Rate limiting
@@ -87,6 +90,29 @@ router.get("/status", gameRateLimit, async (req, res) => {
   try {
     const team = req.team;
 
+    // Get team data from stateManager (priority), fallback to database
+    let teamData = stateManager.getTeam(team.id);
+    if (!teamData) {
+      // Fallback to database
+      const dbTeam = await executeQuery(
+        "SELECT id, name, current_position, total_score FROM teams WHERE id = ?",
+        [team.id]
+      );
+      if (dbTeam.length > 0) {
+        teamData = stateManager.createOrUpdateTeam(team.id, {
+          name: dbTeam[0].name,
+          currentPosition: dbTeam[0].current_position,
+          totalScore: dbTeam[0].total_score
+        });
+      } else {
+        teamData = {
+          name: team.name,
+          currentPosition: team.current_position,
+          totalScore: team.total_score
+        };
+      }
+    }
+
     // Get completed decisions
     const decisions = await executeQuery(
       "SELECT position, score FROM team_decisions WHERE team_id = ? ORDER BY position",
@@ -95,10 +121,10 @@ router.get("/status", gameRateLimit, async (req, res) => {
 
     // Get current scenario if not completed
     let currentScenario = null;
-    if (team.current_position <= 7) {
+    if (teamData.currentPosition <= 7) {
       const scenario = await executeQuery(
         "SELECT * FROM game_scenarios WHERE position = ?",
-        [team.current_position]
+        [teamData.currentPosition]
       );
 
       if (scenario.length > 0) {
@@ -112,17 +138,23 @@ router.get("/status", gameRateLimit, async (req, res) => {
 
     // Get time limit from database settings
     const timeLimit = parseInt(await getGameSetting("answer_time_limit", "900"));
+    
+    // Get global game state
+    const gameState = stateManager.getGameState();
 
     res.json({
       success: true,
       data: {
-        teamName: team.name,
-        currentPosition: team.current_position,
-        totalScore: team.total_score,
-        isGameComplete: team.current_position > 7,
+        teamName: teamData.name,
+        currentPosition: teamData.currentPosition,
+        totalScore: teamData.totalScore,
+        isGameComplete: teamData.currentPosition > 7,
         completedDecisions: decisions,
         currentScenario,
         timeLimit: timeLimit,
+        // Include global game state
+        globalGameState: gameState.status,
+        globalCurrentStep: gameState.currentStep
       },
     });
   } catch (error) {
@@ -390,6 +422,16 @@ router.post("/submit-decision", gameRateLimit, async (req, res) => {
 
       await connection.commit();
 
+      // Update stateManager for real-time tracking
+      stateManager.addTeamDecision(team.id, {
+        position: positionNum,
+        decision: normalizedDecision,
+        reasoning: normalizedArgumentation,
+        score,
+        newPosition,
+        newTotalScore
+      });
+
       // Get scenario data for result
       const scenarioData = await executeQuery(
         "SELECT standard_answer, standard_reasoning FROM game_scenarios WHERE position = ?",
@@ -473,8 +515,13 @@ router.post("/next-scenario", gameRateLimit, async (req, res) => {
 // Get leaderboard
 router.get("/leaderboard", gameRateLimit, async (req, res) => {
   try {
+    // Combine data from stateManager (real-time) and database
+    const allTeams = stateManager.getAllTeams();
+    
+    // Get player counts from database
     const leaderboard = await executeQuery(`
       SELECT 
+        t.id,
         t.name as team_name,
         t.total_score,
         t.current_position,
@@ -485,10 +532,32 @@ router.get("/leaderboard", gameRateLimit, async (req, res) => {
       ORDER BY t.total_score DESC, t.current_position DESC
       LIMIT 10
     `);
+    
+    // Merge with real-time data from stateManager
+    const mergedLeaderboard = leaderboard.map(dbTeam => {
+      const stateTeam = allTeams.find(t => t.id === dbTeam.id);
+      if (stateTeam) {
+        // Use stateManager data for real-time scores
+        return {
+          ...dbTeam,
+          total_score: stateTeam.totalScore,
+          current_position: stateTeam.currentPosition
+        };
+      }
+      return dbTeam;
+    });
+    
+    // Sort again after merge
+    mergedLeaderboard.sort((a, b) => {
+      if (b.total_score !== a.total_score) {
+        return b.total_score - a.total_score;
+      }
+      return b.current_position - a.current_position;
+    });
 
     res.json({
       success: true,
-      data: leaderboard,
+      data: mergedLeaderboard.slice(0, 10),
     });
   } catch (error) {
     console.error("Get leaderboard error:", error);

@@ -67,3 +67,6 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+
+# Game state files (file-based persistence)
+data/session_state.json*

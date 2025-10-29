@@ -9,6 +9,9 @@ const {
   createRateLimit,
 } = require("../middleware/validation");
 
+// Import state manager
+const stateManager = require("../server-state-manager");
+
 const router = express.Router();
 
 // Rate limiting
@@ -65,6 +68,15 @@ router.post(
         }
 
         await connection.commit();
+
+        // Add team to stateManager for real-time tracking
+        stateManager.createOrUpdateTeam(teamId, {
+          name: teamName,
+          currentPosition: 1,
+          totalScore: 0,
+          decisions: [],
+          createdAt: new Date().toISOString()
+        });
 
         // Generate token
         const token = generateToken(teamId);

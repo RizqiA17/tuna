@@ -3,6 +3,9 @@ const rateLimit = require("express-rate-limit");
 const { executeQuery, getConnection } = require("../config/database");
 const { authenticateAdmin, generateAdminToken } = require("../middleware/auth");
 
+// Import state manager
+const stateManager = require("../server-state-manager");
+
 const router = express.Router();
 
 // Rate limiting for admin routes
@@ -57,6 +60,7 @@ router.use(authenticateAdmin);
 // Get all teams with their progress and scores
 router.get("/teams", adminRateLimit, async (req, res) => {
   try {
+    // Get teams from database for player info
     const teams = await executeQuery(`
       SELECT 
         t.id,
@@ -72,9 +76,41 @@ router.get("/teams", adminRateLimit, async (req, res) => {
       ORDER BY t.total_score DESC, t.current_position DESC
     `);
 
+    // Merge with real-time data from stateManager
+    const allTeamsState = stateManager.getAllTeams();
+    const connectedTeams = stateManager.getConnectedTeams();
+    
+    const mergedTeams = teams.map(dbTeam => {
+      const stateTeam = allTeamsState.find(t => t.id === dbTeam.id);
+      const isConnected = connectedTeams.has(dbTeam.id);
+      
+      if (stateTeam) {
+        // Use real-time data from stateManager
+        return {
+          ...dbTeam,
+          current_position: stateTeam.currentPosition,
+          total_score: stateTeam.totalScore,
+          is_connected: isConnected
+        };
+      }
+      
+      return {
+        ...dbTeam,
+        is_connected: isConnected
+      };
+    });
+    
+    // Sort by real-time scores
+    mergedTeams.sort((a, b) => {
+      if (b.total_score !== a.total_score) {
+        return b.total_score - a.total_score;
+      }
+      return b.current_position - a.current_position;
+    });
+
     res.json({
       success: true,
-      data: teams,
+      data: mergedTeams,
     });
   } catch (error) {
     console.error("Get teams error:", error);
@@ -268,6 +304,10 @@ router.post("/reset-game", adminRateLimit, async (req, res) => {
 // Get game statistics
 router.get("/stats", adminRateLimit, async (req, res) => {
   try {
+    // Get real-time data from stateManager
+    const gameState = stateManager.getGameState();
+    const allTeamsState = stateManager.getAllTeams();
+    
     // Get total teams
     const totalTeams = await executeQuery("SELECT COUNT(*) as count FROM teams");
     
@@ -277,19 +317,14 @@ router.get("/stats", adminRateLimit, async (req, res) => {
       FROM team_decisions
     `);
     
-    // Get completed teams (teams that have finished all scenarios)
-    const completedTeams = await executeQuery(`
-      SELECT COUNT(*) as count 
-      FROM teams 
-      WHERE current_position > 7
-    `);
+    // Get completed teams from stateManager (real-time)
+    const completedTeamsCount = allTeamsState.filter(t => t.currentPosition > 7).length;
     
-    // Get average score
-    const avgScore = await executeQuery(`
-      SELECT AVG(total_score) as average 
-      FROM teams 
-      WHERE total_score > 0
-    `);
+    // Get average score from stateManager (real-time)
+    const teamsWithScore = allTeamsState.filter(t => t.totalScore > 0);
+    const avgScoreRealtime = teamsWithScore.length > 0
+      ? teamsWithScore.reduce((sum, t) => sum + t.totalScore, 0) / teamsWithScore.length
+      : 0;
     
     // Get scenario completion rates
     const scenarioStats = await executeQuery(`
@@ -311,9 +346,13 @@ router.get("/stats", adminRateLimit, async (req, res) => {
       data: {
         totalTeams: totalTeams[0].count,
         activeTeams: activeTeams[0].count,
-        completedTeams: completedTeams[0].count,
-        averageScore: avgScore[0].average || 0,
+        completedTeams: completedTeamsCount,
+        averageScore: avgScoreRealtime,
         scenarioStats,
+        // Include global game state
+        gameState: gameState.status,
+        currentStep: gameState.currentStep,
+        connectedTeamsCount: gameState.connectedTeamsCount
       },
     });
   } catch (error) {
@@ -321,6 +360,94 @@ router.get("/stats", adminRateLimit, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
+    });
+  }
+});
+
+// Archive current session to database
+router.post("/archive-session", adminRateLimit, async (req, res) => {
+  try {
+    const gameState = stateManager.getGameState();
+    
+    // Check if game has ended
+    if (gameState.status !== 'ended') {
+      return res.status(400).json({
+        success: false,
+        message: "Can only archive when game has ended"
+      });
+    }
+
+    const allTeams = stateManager.getAllTeams();
+    
+    // Archive all team decisions that haven't been saved yet
+    let archivedCount = 0;
+    const connection = await getConnection();
+    
+    try {
+      await connection.beginTransaction();
+      
+      for (const team of allTeams) {
+        // Update final team state in database
+        await connection.execute(
+          "UPDATE teams SET current_position = ?, total_score = ?, updated_at = NOW() WHERE id = ?",
+          [team.currentPosition, team.totalScore, team.id]
+        );
+        
+        // Archive decisions if they exist in stateManager but not in database
+        if (team.decisions && team.decisions.length > 0) {
+          for (const decision of team.decisions) {
+            // Check if decision already exists
+            const [existing] = await connection.execute(
+              "SELECT id FROM team_decisions WHERE team_id = ? AND position = ?",
+              [team.id, decision.position]
+            );
+            
+            if (existing.length === 0) {
+              // Insert new decision
+              await connection.execute(
+                `INSERT INTO team_decisions 
+                (team_id, position, decision_text, reasoning_text, score, submitted_at)
+                VALUES (?, ?, ?, ?, ?, ?)`,
+                [
+                  team.id,
+                  decision.position,
+                  decision.decision || '',
+                  decision.reasoning || '',
+                  decision.score || 0,
+                  decision.timestamp || new Date().toISOString()
+                ]
+              );
+              archivedCount++;
+            }
+          }
+        }
+      }
+      
+      await connection.commit();
+      
+      res.json({
+        success: true,
+        message: "Session archived successfully",
+        data: {
+          teamsArchived: allTeams.length,
+          decisionsArchived: archivedCount,
+          sessionStarted: gameState.sessionStarted,
+          archivedAt: new Date().toISOString()
+        }
+      });
+      
+      console.log(`📦 Archived session: ${allTeams.length} teams, ${archivedCount} new decisions`);
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error("Archive session error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
     });
   }
 });

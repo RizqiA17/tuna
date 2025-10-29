@@ -12,6 +12,9 @@ const authRoutes = require("./routes/auth");
 const gameRoutes = require("./routes/game");
 const adminRoutes = require("./routes/admin");
 
+// Import state manager
+const stateManager = require("./server-state-manager");
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -124,10 +127,8 @@ app.use((req, res) => {
   });
 });
 
-// WebSocket connection handling
-const connectedTeams = new Map(); // teamId -> socketId
-const connectedAdmins = new Set(); // socketId
-const kickedTeams = new Set(); // teamId -> Set of kicked team IDs
+// WebSocket connection handling now managed by stateManager
+// Access via: stateManager.state.connectedTeams, stateManager.state.connectedAdmins, stateManager.state.kickedTeams
 
 io.on('connection', (socket) => {
   console.log(`🔌 Client connected: ${socket.id}`);
@@ -137,90 +138,139 @@ io.on('connection', (socket) => {
     const { teamId, teamName } = data;
     
     // Check if team has been kicked
-    if (kickedTeams.has(teamId)) {
+    if (stateManager.isTeamKicked(teamId)) {
       console.log(`🚫 Team ${teamName} (${teamId}) tried to join but was previously kicked`);
       socket.emit('team-kicked');
       return;
     }
     
-    connectedTeams.set(teamId, socket.id);
+    // Add to connected teams
+    stateManager.addConnectedTeam(teamId, socket.id);
     socket.teamId = teamId;
     socket.teamName = teamName;
-    console.log(`👥 Team ${teamName} (${teamId}) joined`);
     
-    // Get team progress from database and send to admin
-    try {
-      const { executeQuery } = require('./config/database');
-      const team = await executeQuery(
-        "SELECT current_position, total_score FROM teams WHERE id = ?",
-        [teamId]
-      );
-      
-      if (team.length > 0) {
-        const teamData = team[0];
-        const isCompleted = teamData.current_position > 7;
-        
-        // Send team progress to admin
-        socket.to('admin-room').emit('team-progress-update', {
-          teamId,
-          teamName,
-          currentPosition: teamData.current_position,
-          totalScore: teamData.total_score,
-          isCompleted
+    // Get or create team data from stateManager
+    let team = stateManager.getTeam(teamId);
+    if (!team) {
+      // Load from database first (for existing teams)
+      try {
+        const { executeQuery } = require('./config/database');
+        const dbTeam = await executeQuery(
+          "SELECT id, name, current_position, total_score FROM teams WHERE id = ?",
+          [teamId]
+        );
+        if (dbTeam.length > 0) {
+          team = stateManager.createOrUpdateTeam(teamId, {
+            name: dbTeam[0].name,
+            currentPosition: dbTeam[0].current_position,
+            totalScore: dbTeam[0].total_score,
+            decisions: []
+          });
+        } else {
+          // New team (shouldn't happen here, but handle gracefully)
+          team = stateManager.createOrUpdateTeam(teamId, {
+            name: teamName,
+            currentPosition: 1,
+            totalScore: 0
+          });
+        }
+      } catch (error) {
+        console.error('❌ Error loading team:', error);
+        team = stateManager.createOrUpdateTeam(teamId, {
+          name: teamName,
+          currentPosition: 1,
+          totalScore: 0
         });
-        
-        console.log(`📊 Sent team progress for ${teamName}: position ${teamData.current_position}, score ${teamData.total_score}`);
       }
-    } catch (error) {
-      console.error('❌ Error getting team progress:', error);
     }
     
+    // Send team progress to admin
+    socket.to('admin-room').emit('team-progress-update', {
+      teamId,
+      teamName: team.name,
+      currentPosition: team.currentPosition,
+      totalScore: team.totalScore,
+      isCompleted: team.currentPosition > 7
+    });
+    
+    // Send current game state to team
+    const gameState = stateManager.getGameState();
+    socket.emit('game-state-update', {
+      gameState: gameState.status,
+      currentStep: gameState.currentStep,
+      isGameRunning: gameState.status === 'running',
+      isWaiting: gameState.status === 'waiting',
+      timestamp: new Date().toISOString()
+    });
+    
     // Notify admins about team connection
-    socket.to('admin-room').emit('team-connected', { teamId, teamName });
+    socket.to('admin-room').emit('team-connected', { teamId, teamName: team.name });
   });
 
   // Admin connection
   socket.on('admin-join', () => {
-    connectedAdmins.add(socket.id);
+    stateManager.addConnectedAdmin(socket.id);
     socket.join('admin-room');
-    console.log(`👨‍💼 Admin connected: ${socket.id}`);
+    
+    // Send current game state
+    const gameState = stateManager.getGameState();
+    socket.emit('game-state-update', {
+      gameState: gameState.status,
+      currentStep: gameState.currentStep,
+      isGameRunning: gameState.status === 'running',
+      isGameEnded: gameState.status === 'ended',
+      isWaiting: gameState.status === 'waiting',
+      connectedTeamsCount: gameState.connectedTeamsCount,
+      timestamp: new Date().toISOString()
+    });
     
     // Send current connected teams to admin
-    const teams = Array.from(connectedTeams.entries()).map(([teamId, socketId]) => ({
-      teamId,
-      teamName: io.sockets.sockets.get(socketId)?.teamName || 'Unknown'
-    }));
+    const connectedTeams = stateManager.getConnectedTeams();
+    const teams = Array.from(connectedTeams.entries()).map(([teamId, socketId]) => {
+      const team = stateManager.getTeam(teamId);
+      return {
+        teamId,
+        teamName: team ? team.name : (io.sockets.sockets.get(socketId)?.teamName || 'Unknown'),
+        socketId
+      };
+    });
     socket.emit('connected-teams', teams);
   });
 
   // Game control events
   socket.on('start-game-all', async () => {
     console.log('🎮 Admin starting game for all teams');
+    stateManager.updateGameState('running', 1);
+    
     io.to('admin-room').emit('game-started');
     io.emit('game-start-command');
   });
 
   socket.on('next-scenario-all', () => {
     console.log('➡️ Admin advancing to next scenario for all teams');
+    const newStep = stateManager.state.currentStep + 1;
+    stateManager.updateGameState('running', newStep);
+    
     io.to('admin-room').emit('scenario-advanced');
     io.emit('next-scenario-command');
   });
 
   socket.on('end-game-all', () => {
     console.log('🏁 Admin ending game for all teams');
+    stateManager.updateGameState('ended');
+    
     io.to('admin-room').emit('game-ended');
     io.emit('end-game-command');
   });
 
   socket.on('reset-game-all', () => {
     console.log('🔄 Admin resetting game for all teams');
+    stateManager.resetSession();
+    
     io.to('admin-room').emit('game-reset');
     
-    // Clear kicked teams blacklist on reset
-    kickedTeams.clear();
-    console.log('✅ Kicked teams blacklist cleared on game reset');
-    
-    // Only send reset command to connected teams (not kicked teams)
+    // Send reset command to connected teams
+    const connectedTeams = stateManager.getConnectedTeams();
     connectedTeams.forEach((socketId, teamId) => {
       io.to(socketId).emit('reset-game-command');
     });
@@ -228,47 +278,49 @@ io.on('connection', (socket) => {
 
   socket.on('unban-team', (data) => {
     const { teamId } = data;
-    if (kickedTeams.has(teamId)) {
-      kickedTeams.delete(teamId);
-      console.log(`✅ Team ${teamId} unbanned and can rejoin`);
+    if (stateManager.isTeamKicked(teamId)) {
+      stateManager.unbanTeam(teamId);
       io.to('admin-room').emit('team-unbanned', { teamId });
     }
   });
 
   socket.on('kick-team', (data) => {
     const { teamId } = data;
+    const connectedTeams = stateManager.getConnectedTeams();
     const teamSocketId = connectedTeams.get(teamId);
+    
     if (teamSocketId) {
-      // Get team name before deleting
-      const teamName = io.sockets.sockets.get(teamSocketId)?.teamName || 'Unknown';
+      // Get team name
+      const team = stateManager.getTeam(teamId);
+      const teamName = team ? team.name : (io.sockets.sockets.get(teamSocketId)?.teamName || 'Unknown');
       
       // Add team to kicked teams blacklist
-      kickedTeams.add(teamId);
+      stateManager.kickTeam(teamId);
       
       // Send kick notification to team
       io.to(teamSocketId).emit('team-kicked');
       
       // Remove team from connected teams
-      connectedTeams.delete(teamId);
+      stateManager.removeConnectedTeam(teamId);
       
       // Notify admins about team kick
       io.to('admin-room').emit('team-disconnected', {
         teamId: teamId,
         teamName: teamName
       });
-      
-      console.log(`👢 Team ${teamName} (${teamId}) kicked from game and added to blacklist`);
     }
   });
 
   // Team logout
   socket.on('team-logout', (data) => {
     const { teamId } = data;
-    const teamName = socket.teamName || 'Unknown';
+    const team = stateManager.getTeam(teamId);
+    const teamName = team ? team.name : (socket.teamName || 'Unknown');
     
+    const connectedTeams = stateManager.getConnectedTeams();
     if (connectedTeams.has(teamId)) {
       // Remove team from connected teams
-      connectedTeams.delete(teamId);
+      stateManager.removeConnectedTeam(teamId);
       
       // Notify admins about team logout
       socket.to('admin-room').emit('team-disconnected', {
@@ -276,17 +328,26 @@ io.on('connection', (socket) => {
         teamName: teamName,
         reason: 'logout'
       });
-      
-      console.log(`🚪 Team ${teamName} (${teamId}) logged out and removed from connected teams`);
     }
   });
 
   // Team progress updates
   socket.on('team-progress', (data) => {
     const { teamId, currentPosition, totalScore, isCompleted } = data;
+    
+    // Update team data in stateManager
+    const team = stateManager.getTeam(teamId);
+    if (team) {
+      stateManager.createOrUpdateTeam(teamId, {
+        ...team,
+        currentPosition,
+        totalScore
+      });
+    }
+    
     socket.to('admin-room').emit('team-progress-update', {
       teamId,
-      teamName: socket.teamName,
+      teamName: socket.teamName || (team ? team.name : 'Unknown'),
       currentPosition,
       totalScore,
       isCompleted
@@ -296,9 +357,11 @@ io.on('connection', (socket) => {
   // Team decision submission
   socket.on('team-decision', (data) => {
     const { teamId, position, score } = data;
+    const team = stateManager.getTeam(teamId);
+    
     socket.to('admin-room').emit('team-decision-submitted', {
       teamId,
-      teamName: socket.teamName,
+      teamName: socket.teamName || (team ? team.name : 'Unknown'),
       position,
       score
     });
@@ -309,15 +372,16 @@ io.on('connection', (socket) => {
     console.log(`🔌 Client disconnected: ${socket.id}`);
     
     if (socket.teamId) {
-      connectedTeams.delete(socket.teamId);
+      stateManager.removeConnectedTeam(socket.teamId);
+      const team = stateManager.getTeam(socket.teamId);
       socket.to('admin-room').emit('team-disconnected', {
         teamId: socket.teamId,
-        teamName: socket.teamName
+        teamName: team ? team.name : (socket.teamName || 'Unknown')
       });
     }
     
-    if (connectedAdmins.has(socket.id)) {
-      connectedAdmins.delete(socket.id);
+    if (stateManager.state.connectedAdmins.has(socket.id)) {
+      stateManager.removeConnectedAdmin(socket.id);
     }
   });
 });
@@ -327,6 +391,10 @@ const startServer = async () => {
   try {
     // Test database connection
     await testConnection();
+
+    // Sync teams from database to stateManager
+    const { executeQuery } = require('./config/database');
+    await stateManager.syncTeamsFromDatabase(executeQuery);
 
     // Start HTTP server with WebSocket
     server.listen(PORT, () => {
