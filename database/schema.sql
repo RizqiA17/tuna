@@ -73,9 +73,24 @@ INSERT INTO game_scenarios (position, title, scenario_text, standard_answer, sta
 
 (7, 'Puncak Terakhir', 'Anda hampir sampai di puncak! Namun, puncak yang Anda lihat ternyata adalah puncak palsu. Puncak sejati berada lebih tinggi, dan untuk mencapainya Anda harus menyeberangi punggungan sempit yang diselimuti kabut tebal. Tiba-tiba, gempa kecil mengguncang pijakan Anda. Anda tidak tahu seberapa stabil sisa jalur tersebut, dan di ujung punggungan terlihat sebuah cahaya aneh yang belum pernah Anda lihat. Apa kerangka kerja keputusan yang Anda gunakan?', 'Menggunakan pendekatan terintegrasi. Stop & Stabilize (Turbulensi): Berhenti bergerak, cari pijakan paling stabil, tenangkan diri. Clarify & Sense-make (Ambiguitas): Tunggu sejenak jika memungkinkan agar kabut sedikit berkurang. Gunakan tali untuk menguji kekuatan jalur di depan. Explore & Experiment (Novelty): Amati cahaya dari kejauhan. Jangan langsung mendekat. Hedge & Prepare (Ketidakpastian): Buat beberapa skenario dan siapkan tali pengaman sebagai mitigasi risiko.', 'Ini adalah ujian akhir yang menggabungkan semua elemen TUNA. Jawaban terbaik bukanlah satu tindakan tunggal, melainkan sebuah proses atau kerangka kerja pengambilan keputusan yang adaptif. Tim harus menunjukkan bahwa mereka bisa mengidentifikasi setiap elemen TUNA dalam masalah ini dan menerapkan strategi yang sesuai untuk masing-masing elemen secara berurutan dan terintegrasi.', 15);
 
+-- Game settings table (for admin-configurable game settings)
+CREATE TABLE game_settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    setting_key VARCHAR(100) NOT NULL UNIQUE,
+    setting_value TEXT NOT NULL,
+    description TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_by VARCHAR(100) DEFAULT 'system'
+);
+
+-- Insert default game settings
+INSERT INTO game_settings (setting_key, setting_value, description) VALUES
+('answer_time_limit', '900', 'Time limit in seconds for teams to answer each scenario (default: 15 minutes)');
+
 -- Create indexes for better performance
 CREATE INDEX idx_teams_name ON teams(name);
 CREATE INDEX idx_players_team_id ON players(team_id);
 CREATE INDEX idx_game_sessions_token ON game_sessions(session_token);
 CREATE INDEX idx_team_decisions_team_position ON team_decisions(team_id, position);
 CREATE INDEX idx_game_scenarios_position ON game_scenarios(position);
+CREATE INDEX idx_game_settings_key ON game_settings(setting_key);

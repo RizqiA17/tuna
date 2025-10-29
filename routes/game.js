@@ -15,6 +15,23 @@ const router = express.Router();
 // Rate limiting
 const gameRateLimit = rateLimit(createRateLimit(60 * 1000, 60)); // 60 requests per minute
 
+// Helper function to get game setting
+async function getGameSetting(key, defaultValue = null) {
+  try {
+    const result = await executeQuery(
+      "SELECT setting_value FROM game_settings WHERE setting_key = ?",
+      [key]
+    );
+    if (result.length > 0) {
+      return result[0].setting_value;
+    }
+    return defaultValue;
+  } catch (error) {
+    console.error(`Error getting game setting ${key}:`, error);
+    return defaultValue;
+  }
+}
+
 // Apply authentication to all game routes
 router.use(authenticateToken);
 
@@ -43,6 +60,9 @@ router.post("/start", gameRateLimit, async (req, res) => {
       });
     }
 
+    // Get time limit from database settings
+    const timeLimit = parseInt(await getGameSetting("answer_time_limit", "900"));
+
     res.json({
       success: true,
       message: "Game started successfully",
@@ -51,7 +71,7 @@ router.post("/start", gameRateLimit, async (req, res) => {
         title: scenario[0].title,
         scenarioText: scenario[0].scenario_text,
       },
-      timeLimit: 900, // 15 minutes
+      timeLimit: timeLimit,
     });
   } catch (error) {
     console.error("Start game error:", error);
@@ -90,6 +110,9 @@ router.get("/status", gameRateLimit, async (req, res) => {
       }
     }
 
+    // Get time limit from database settings
+    const timeLimit = parseInt(await getGameSetting("answer_time_limit", "900"));
+
     res.json({
       success: true,
       data: {
@@ -99,6 +122,7 @@ router.get("/status", gameRateLimit, async (req, res) => {
         isGameComplete: team.current_position > 7,
         completedDecisions: decisions,
         currentScenario,
+        timeLimit: timeLimit,
       },
     });
   } catch (error) {
@@ -416,6 +440,9 @@ router.post("/next-scenario", gameRateLimit, async (req, res) => {
       [team.current_position]
     );
 
+    // Get time limit from database settings
+    const timeLimit = parseInt(await getGameSetting("answer_time_limit", "900"));
+
     if (nextScenario.length > 0) {
       res.json({
         success: true,
@@ -424,7 +451,7 @@ router.post("/next-scenario", gameRateLimit, async (req, res) => {
           title: nextScenario[0].title,
           scenarioText: nextScenario[0].scenario_text,
         },
-        timeLimit: 900, // 15 minutes
+        timeLimit: timeLimit,
       });
     } else {
       // Game finished

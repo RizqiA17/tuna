@@ -70,6 +70,9 @@
             <button class="nav-btn" data-section="game-control">
                 <i class="fas fa-gamepad"></i> Game Control
             </button>
+            <button class="nav-btn" data-section="game-settings">
+                <i class="fas fa-cog"></i> Settings
+            </button>
             <button class="nav-btn" data-section="teams">
                 <i class="fas fa-users"></i> Teams
             </button>
@@ -182,6 +185,34 @@
                     <h3>Real-time Team Monitoring</h3>
                     <div id="teamsMonitoringList" class="teams-monitoring-list">
                         <!-- Real-time team data will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Settings Section -->
+            <div id="game-settings-section" class="admin-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-cog"></i> Game Settings</h2>
+                    <p>Configure game settings and parameters</p>
+                </div>
+                
+                <div class="game-settings-panel">
+                    <div class="settings-card">
+                        <h3><i class="fas fa-clock"></i> Waktu untuk Mengisi Jawaban</h3>
+                        <p class="setting-description">Atur durasi waktu yang diberikan kepada tim untuk mengisi jawaban setiap scenario (dalam menit).</p>
+                        
+                        <div class="setting-control">
+                            <label for="answerTimeLimit">Waktu (menit):</label>
+                            <div class="input-group">
+                                <input type="number" id="answerTimeLimit" min="1" max="60" step="1" class="form-input" placeholder="15">
+                                <button id="saveTimeLimitBtn" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Simpan
+                                </button>
+                            </div>
+                            <small class="form-hint">Rentang: 1-60 menit (60-3600 detik)</small>
+                        </div>
+                        
+                        <div id="timeLimitStatus" class="setting-status" style="display: none;"></div>
                     </div>
                 </div>
             </div>

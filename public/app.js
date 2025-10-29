@@ -19,7 +19,7 @@ class TunaAdventureGame {
 
     // Timer persistence properties
     this.timerStartTime = null;
-    this.timerDuration = 15; // 15 minutes in seconds
+    this.timerDuration = 900; // Default 15 minutes in seconds (will be overridden by API)
     this.isTimerActive = false;
     this.isTimerRestoring = false; // Flag to prevent multiple restoration
     this.currentScreen = "login-screen";
@@ -1647,14 +1647,31 @@ class TunaAdventureGame {
     this.currentScreen = "decision-content";
     this.saveGameState();
 
-    // Try to restore existing timer state first
+    // Check if we should restore timer or start fresh
+    // Only restore if timer state exists AND is for the same scenario position
     const timerRestored = this.restoreTimerState();
     if (!timerRestored) {
-      // Only start new timer if no existing timer was restored
+      // Start fresh timer with full time limit
+      // Get time limit from server if available, otherwise use stored duration
+      if (!this.timeLeft || this.timeLeft <= 0) {
+        // Try to get from server first
+        try {
+          const statusResponse = await this.apiRequest("/game/status");
+          if (statusResponse.success && statusResponse.data.timeLimit) {
+            this.timerDuration = parseInt(statusResponse.data.timeLimit);
+            this.timeLeft = this.timerDuration;
+          }
+        } catch (error) {
+          this.logger.warn("Failed to get time limit from server, using stored duration", error);
+        }
+      }
       this.startTimer();
     }
+    
+    // Show notification with actual time limit
+    const minutes = Math.floor((this.timeLeft || this.timerDuration || 900) / 60);
     this.showNotification(
-      "Waktu diskusi dimulai! Anda memiliki 15 menit.",
+      `Waktu diskusi dimulai! Anda memiliki ${minutes} menit.`,
       "info"
     );
   }
@@ -1952,6 +1969,10 @@ class TunaAdventureGame {
       // Clear timer state for new scenario
       this.stopTimer();
       this.clearTimerState();
+      
+      // Reset timer duration to get fresh time limit for new scenario
+      this.timeLeft = null;
+      this.timerDuration = 900; // Will be updated from API when starting decision
 
       try {
         // Get the next scenario directly from our game scenarios
@@ -1963,6 +1984,21 @@ class TunaAdventureGame {
           this.updateScenarioUI();
           // Clear form fields for new scenario
           this.clearDecisionFormForNewScenario();
+          
+          // Get time limit from server for new scenario
+          try {
+            const statusResponse = await this.apiRequest("/game/status");
+            if (statusResponse.success && statusResponse.data.timeLimit) {
+              this.timerDuration = parseInt(statusResponse.data.timeLimit);
+              this.timeLeft = this.timerDuration;
+              this.logger.info("Updated timer duration from server", {
+                timeLimit: this.timerDuration,
+                position: this.teamData.currentPosition
+              });
+            }
+          } catch (error) {
+            this.logger.warn("Failed to get time limit from server, using default", error);
+          }
           document.getElementById("scenario-content").classList.add("active");
           console.log(
             "🔄 currentScreen changed to scenario-content (line 742)"
@@ -2295,9 +2331,12 @@ class TunaAdventureGame {
       return;
     }
 
-    this.timeLeft = 15; // 15 minutes
+    // Use timeLeft if already set from API, otherwise use timerDuration
+    if (!this.timeLeft || this.timeLeft <= 0) {
+      this.timeLeft = this.timerDuration || 900; // Fallback to 15 minutes (900 seconds)
+    }
     this.timerStartTime = Date.now();
-    this.timerDuration = 15;
+    this.timerDuration = this.timeLeft; // Store the duration for restoration
     this.isTimerActive = true;
 
     // Save timer state to localStorage
@@ -2372,9 +2411,9 @@ class TunaAdventureGame {
         startTime: this.timerStartTime,
         duration: this.timerDuration,
         isActive: this.isTimerActive,
-        currentScenario: this.currentScenario
+        scenarioPosition: this.currentScenario
           ? this.currentScenario.position
-          : null,
+          : this.teamData?.currentPosition || null,
         gameState: this.gameState,
         currentScreen: this.currentScreen,
       };
@@ -2413,10 +2452,31 @@ class TunaAdventureGame {
         });
 
         // Only restore timer if we're in decision-content and timer was active
-        if (this.currentScreen === "decision-content" && 
+        // AND it's for the same scenario position (prevent restoring from previous scenario)
+        const currentPosition = this.currentScenario?.position || this.teamData?.currentPosition || 0;
+        const savedPosition = timerState.scenarioPosition || timerState.currentScenario || 0; // Support old format
+        
+        this.logger.info("Checking timer restoration conditions", {
+          currentScreen: this.currentScreen,
+          timerActive: timerState.isActive,
+          hasStartTime: !!timerState.startTime,
+          timerScreen: timerState.currentScreen,
+          currentPosition: currentPosition,
+          savedPosition: savedPosition,
+          positionsMatch: currentPosition === savedPosition,
+          positionCheck: (currentPosition === savedPosition && currentPosition > 0) || (!timerState.scenarioPosition && !timerState.currentScenario && currentPosition > 0)
+        });
+        
+        // Restore if: same screen + active + valid + (same position OR old format without position)
+        const isSamePosition = currentPosition === savedPosition && currentPosition > 0;
+        const isOldFormat = !timerState.scenarioPosition && !timerState.currentScenario && currentPosition > 0;
+        const shouldRestore = this.currentScreen === "decision-content" && 
             timerState.isActive && 
             timerState.startTime && 
-            timerState.currentScreen === "decision-content") {
+            timerState.currentScreen === "decision-content" &&
+            (isSamePosition || isOldFormat);
+        
+        if (shouldRestore) {
           
           // Prevent multiple timer instances
           if (this.timer) {
@@ -2508,15 +2568,34 @@ class TunaAdventureGame {
             this.isTimerRestoring = false;
           }
         } else {
+          // Timer state exists but shouldn't be restored (different scenario or inactive)
+          const reason = [];
+          if (this.currentScreen !== "decision-content") reason.push(`wrong screen (${this.currentScreen})`);
+          if (!timerState.isActive) reason.push("timer inactive");
+          if (!timerState.startTime) reason.push("no start time");
+          if (timerState.currentScreen !== "decision-content") reason.push(`timer screen mismatch (${timerState.currentScreen})`);
+          if (currentPosition !== savedPosition && savedPosition > 0) reason.push(`position mismatch (${currentPosition} vs ${savedPosition})`);
+          if (currentPosition <= 0) reason.push(`invalid position (${currentPosition})`);
+          
           this.logger.info(
-            "Timer state found but not restoring - not in decision-content or timer inactive",
+            "Timer state found but not restoring",
             {
               currentScreen: this.currentScreen,
               timerActive: timerState.isActive,
-              timerScreen: timerState.currentScreen
+              timerScreen: timerState.currentScreen,
+              currentPosition: currentPosition,
+              savedPosition: savedPosition,
+              reason: reason.join(", ") || "unknown"
             }
           );
-          this.clearTimerState();
+          
+          // Only clear if position mismatch (prevent clearing valid old format timers)
+          if (currentPosition !== savedPosition && savedPosition > 0 && (timerState.scenarioPosition || timerState.currentScenario)) {
+            this.clearTimerState();
+          } else if (reason.length > 0 && !reason.includes("position mismatch")) {
+            // Clear only if it's definitely not restorable (not just position check)
+            this.clearTimerState();
+          }
           this.isTimerRestoring = false;
         }
       }
@@ -2630,6 +2709,11 @@ class TunaAdventureGame {
             // Update team data with server state
             this.teamData.currentPosition = serverState.currentPosition;
             this.teamData.totalScore = serverState.totalScore;
+            
+            // Update time limit from server if available
+            if (serverState.timeLimit) {
+              this.timerDuration = parseInt(serverState.timeLimit);
+            }
 
             // Determine appropriate screen based on server state
             this.logger.info("Determining screen based on server state", {
@@ -2698,16 +2782,35 @@ class TunaAdventureGame {
                         // Set decision-content screen and restore timer
                         this.currentScreen = "decision-content";
                         this.currentScenario = serverState.currentScenario;
+                        this.currentScenarioPosition = serverState.currentPosition;
                         this.gameState = "running";
                         this.isGameStarted = true;
                         this.isWaitingForAdmin = false;
                         
-                        // Restore timer immediately
-                        this.restoreTimerState();
+                        // IMPORTANT: Ensure currentScenario has position property for timer restoration
+                        if (this.currentScenario && !this.currentScenario.position && serverState.currentPosition) {
+                          this.currentScenario.position = serverState.currentPosition;
+                        }
                         
-                        this.logger.info("Timer restored based on server state", {
+                        // Restore timer immediately (now currentScenario is properly set)
+                        const timerRestored = this.restoreTimerState();
+                        
+                        // If timer wasn't restored but should be, start fresh timer
+                        if (!timerRestored && serverState.timeLimit) {
+                          this.logger.info("Timer not restored from state, starting fresh timer", {
+                            timeLimit: serverState.timeLimit,
+                            position: serverState.currentPosition
+                          });
+                          this.timeLeft = parseInt(serverState.timeLimit);
+                          this.timerDuration = parseInt(serverState.timeLimit);
+                          this.startTimer();
+                        }
+                        
+                        this.logger.info("Timer restoration completed", {
                           currentScreen: this.currentScreen,
-                          hasTimer: !!this.timer
+                          hasTimer: !!this.timer,
+                          timerRestored: timerRestored,
+                          position: this.currentScenario?.position || serverState.currentPosition
                         });
                         
                         // Skip the rest of the restoration logic

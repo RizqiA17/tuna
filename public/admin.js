@@ -13,6 +13,7 @@ class AdminPanel {
         this.gameState = 'waiting'; // waiting, running, ended
         this.teamsCompletedCurrentStep = new Set();
         this.currentStep = 0;
+        this.gameSettings = {}; // Store game settings
         this.logger = window.AdminLogger || new Logger('ADMIN');
         
         this.init();
@@ -226,6 +227,24 @@ class AdminPanel {
                 this.kickTeam(parseInt(teamId));
             }
         });
+
+        // Game settings - save time limit
+        const saveTimeLimitBtn = document.getElementById("saveTimeLimitBtn");
+        if (saveTimeLimitBtn) {
+            saveTimeLimitBtn.addEventListener("click", () => {
+                this.saveTimeLimit();
+            });
+        }
+
+        // Enter key support for time limit input
+        const answerTimeLimitInput = document.getElementById("answerTimeLimit");
+        if (answerTimeLimitInput) {
+            answerTimeLimitInput.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") {
+                    this.saveTimeLimit();
+                }
+            });
+        }
     }
 
     async loadData() {
@@ -233,15 +252,22 @@ class AdminPanel {
         
         try {
             // Load all data in parallel
-            const [teamsResponse, statsResponse, leaderboardResponse] = await Promise.all([
+            const [teamsResponse, statsResponse, leaderboardResponse, settingsResponse] = await Promise.all([
                 this.apiRequest("/admin/teams"),
                 this.apiRequest("/admin/stats"),
-                this.apiRequest("/admin/leaderboard")
+                this.apiRequest("/admin/leaderboard"),
+                this.apiRequest("/admin/game-settings")
             ]);
 
             this.teamsData = teamsResponse.data;
             this.statsData = statsResponse.data;
             this.leaderboardData = leaderboardResponse.data;
+            
+            // Load game settings
+            if (settingsResponse.success) {
+                this.gameSettings = settingsResponse.data;
+                this.updateGameSettingsUI();
+            }
 
             // Update game state from server stats
             if (this.statsData.gameState) {
@@ -676,7 +702,7 @@ class AdminPanel {
         }
     }
 
-    showSection(sectionName) {
+    async showSection(sectionName) {
         // Update navigation
         document.querySelectorAll(".nav-btn").forEach(btn => {
             btn.classList.remove("active");
@@ -705,6 +731,13 @@ class AdminPanel {
             // Update real-time monitoring when switching to game control
             this.updateRealTimeMonitoring();
             this.updateGameControlButtons();
+        } else if (sectionName === "game-settings") {
+            // Load game settings if not already loaded
+            if (!this.gameSettings || Object.keys(this.gameSettings).length === 0) {
+                this.loadGameSettings();
+            } else {
+                this.updateGameSettingsUI();
+            }
         }
         // Analytics section is hidden - no need to load
         if (sectionName === "analytics") {
@@ -1309,6 +1342,135 @@ class AdminPanel {
             console.error(`❌ Error checking decision for team ${teamId}:`, error);
         }
         return false;
+    }
+
+    // Game Settings Methods
+    async loadGameSettings() {
+        try {
+            const response = await this.apiRequest("/admin/game-settings");
+            if (response.success) {
+                this.gameSettings = response.data;
+                this.updateGameSettingsUI();
+            }
+        } catch (error) {
+            console.error("Error loading game settings:", error);
+            this.showNotification("Gagal memuat pengaturan game", "error");
+        }
+    }
+
+    updateGameSettingsUI() {
+        const answerTimeLimitInput = document.getElementById("answerTimeLimit");
+        const timeLimitStatus = document.getElementById("timeLimitStatus");
+        
+        if (!answerTimeLimitInput) return;
+        
+        // Update input with current setting value
+        if (this.gameSettings && this.gameSettings.answer_time_limit) {
+            const timeLimitSeconds = parseInt(this.gameSettings.answer_time_limit.value);
+            const timeLimitMinutes = Math.floor(timeLimitSeconds / 60);
+            answerTimeLimitInput.value = timeLimitMinutes;
+            
+            // Show last updated info
+            if (timeLimitStatus && this.gameSettings.answer_time_limit.updated_at) {
+                const updatedDate = new Date(this.gameSettings.answer_time_limit.updated_at);
+                timeLimitStatus.innerHTML = `
+                    <i class="fas fa-check-circle"></i> 
+                    Terakhir diupdate: ${updatedDate.toLocaleString('id-ID')}
+                `;
+                timeLimitStatus.className = "setting-status success";
+                timeLimitStatus.style.display = "block";
+            }
+        } else {
+            // Default to 15 minutes if no setting found
+            answerTimeLimitInput.value = 15;
+        }
+    }
+
+    async saveTimeLimit() {
+        const answerTimeLimitInput = document.getElementById("answerTimeLimit");
+        const timeLimitStatus = document.getElementById("timeLimitStatus");
+        const saveBtn = document.getElementById("saveTimeLimitBtn");
+        
+        if (!answerTimeLimitInput || !timeLimitStatus) return;
+        
+        const minutes = parseInt(answerTimeLimitInput.value);
+        
+        // Validate input
+        if (isNaN(minutes) || minutes < 1 || minutes > 60) {
+            timeLimitStatus.innerHTML = `
+                <i class="fas fa-exclamation-circle"></i> 
+                Masukkan nilai antara 1-60 menit
+            `;
+            timeLimitStatus.className = "setting-status error";
+            timeLimitStatus.style.display = "block";
+            return;
+        }
+        
+        // Convert minutes to seconds
+        const seconds = minutes * 60;
+        
+        // Disable button during save
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+        }
+        
+        try {
+            const response = await this.apiRequest("/admin/game-settings", {
+                method: "PUT",
+                body: JSON.stringify({
+                    settings: {
+                        answer_time_limit: seconds
+                    }
+                })
+            });
+            
+            if (response.success) {
+                // Update game settings
+                this.gameSettings = response.data;
+                
+                // Update UI
+                this.updateGameSettingsUI();
+                
+                // Show success message
+                timeLimitStatus.innerHTML = `
+                    <i class="fas fa-check-circle"></i> 
+                    Waktu berhasil diubah menjadi ${minutes} menit (${seconds} detik)
+                `;
+                timeLimitStatus.className = "setting-status success";
+                timeLimitStatus.style.display = "block";
+                
+                this.showNotification(`Waktu game berhasil diubah menjadi ${minutes} menit`, "success");
+                
+                // Hide status after 3 seconds
+                setTimeout(() => {
+                    if (this.gameSettings && this.gameSettings.answer_time_limit && this.gameSettings.answer_time_limit.updated_at) {
+                        const updatedDate = new Date(this.gameSettings.answer_time_limit.updated_at);
+                        timeLimitStatus.innerHTML = `
+                            <i class="fas fa-check-circle"></i> 
+                            Terakhir diupdate: ${updatedDate.toLocaleString('id-ID')}
+                        `;
+                    }
+                }, 3000);
+            } else {
+                throw new Error(response.message || "Gagal menyimpan pengaturan");
+            }
+        } catch (error) {
+            console.error("Error saving time limit:", error);
+            timeLimitStatus.innerHTML = `
+                <i class="fas fa-exclamation-circle"></i> 
+                Gagal menyimpan: ${error.message || "Terjadi kesalahan"}
+            `;
+            timeLimitStatus.className = "setting-status error";
+            timeLimitStatus.style.display = "block";
+            this.showNotification("Gagal menyimpan pengaturan waktu", "error");
+        } finally {
+            // Re-enable button
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Simpan';
+            }
+        }
     }
 }
 

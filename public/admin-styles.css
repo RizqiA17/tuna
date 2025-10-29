@@ -2095,3 +2095,152 @@ html, body {
         gap: 0.5rem;
     }
 }
+
+/* Game Settings Styles */
+.game-settings-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.settings-card {
+    background: var(--admin-card-bg);
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 4px var(--admin-shadow-color);
+    border: 1px solid var(--admin-border-color);
+    transition: all 0.3s ease;
+}
+
+.settings-card:hover {
+    box-shadow: 0 4px 8px var(--admin-shadow-color);
+}
+
+.settings-card h3 {
+    margin: 0 0 0.5rem 0;
+    color: var(--admin-text-primary);
+    font-size: 1.3rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    transition: color 0.3s ease;
+}
+
+.settings-card h3 i {
+    color: var(--admin-accent-primary);
+}
+
+.setting-description {
+    margin: 0 0 1.5rem 0;
+    color: var(--admin-text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    transition: color 0.3s ease;
+}
+
+.setting-control {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.setting-control label {
+    font-weight: 500;
+    color: var(--admin-text-primary);
+    font-size: 1rem;
+    transition: color 0.3s ease;
+}
+
+.input-group {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.input-group .form-input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--admin-border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+    background: var(--admin-input-bg);
+    color: var(--admin-text-primary);
+    transition: all 0.3s ease;
+    font-family: 'Poppins', sans-serif;
+}
+
+.input-group .form-input:focus {
+    outline: none;
+    border-color: var(--admin-accent-primary);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.input-group .form-input:hover {
+    border-color: var(--admin-accent-secondary);
+}
+
+.input-group .btn {
+    white-space: nowrap;
+    padding: 0.75rem 1.5rem;
+}
+
+.form-hint {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--admin-text-muted);
+    margin-top: 0.25rem;
+    transition: color 0.3s ease;
+}
+
+.setting-status {
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.setting-status.success {
+    background: rgba(40, 167, 69, 0.1);
+    color: #28a745;
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.setting-status.error {
+    background: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+    border: 1px solid rgba(220, 53, 69, 0.3);
+}
+
+.setting-status i {
+    font-size: 1rem;
+}
+
+[data-theme="dark"] .setting-status.success {
+    background: rgba(40, 167, 69, 0.2);
+    border-color: rgba(40, 167, 69, 0.4);
+}
+
+[data-theme="dark"] .setting-status.error {
+    background: rgba(220, 53, 69, 0.2);
+    border-color: rgba(220, 53, 69, 0.4);
+}
+
+/* Responsive for Game Settings */
+@media (max-width: 768px) {
+    .settings-card {
+        padding: 1.5rem;
+    }
+    
+    .input-group {
+        flex-direction: column;
+    }
+    
+    .input-group .btn {
+        width: 100%;
+    }
+}
