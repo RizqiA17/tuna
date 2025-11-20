@@ -230,6 +230,65 @@ router.get(
   }
 );
 
+router.get("/rank/:teamId", async (req, res) => {
+  try {
+    const { teamId } = req.params;
+
+    // Ambil data tim
+    const team = await executeQuery(
+      "SELECT id, name, current_position, total_score FROM teams WHERE id = ?",
+      [teamId]
+    );
+
+    if (!team.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Team not found",
+      });
+    }
+
+    // Ambil nilai score & posisi dari tim
+    const teamTotalScore = team[0].total_score;
+    const teamCurrentPosition = team[0].current_position;
+
+    // Hitung ranking tim ini
+    const rankResult = await executeQuery(
+      `
+        SELECT COUNT(*) + 1 AS team_rank
+        FROM teams
+        WHERE (total_score > ?) 
+          OR (total_score = ? AND current_position > ?)
+      `,
+      [teamTotalScore, teamTotalScore, teamCurrentPosition]
+    );
+
+    const teamRank = rankResult[0]?.team_rank || 1;
+
+    // Opsional: total jumlah tim
+    const totalTeamsResult = await executeQuery(
+      "SELECT COUNT(*) AS total FROM teams"
+    );
+    const totalTeams = totalTeamsResult[0].total;
+
+    res.json({
+      success: true,
+      data: {
+        teamId: team[0].id,
+        teamName: team[0].name,
+        rank: teamRank,
+        totalTeams: totalTeams, // "Rank X dari Y tim"
+      },
+    });
+  } catch (error) {
+    console.error("Get team rank error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+
 // Submit decision for a scenario
 router.post(
   "/submit-decision/:position",

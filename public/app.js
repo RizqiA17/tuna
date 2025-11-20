@@ -2279,9 +2279,13 @@ class TunaAdventureGame {
     return hasData;
   }
 
-  updateCompleteUI() {
+  async updateCompleteUI() {
+    const response = await this.apiRequest(`/game/rank/${this.teamData.teamId}`);
+
     document.getElementById("finalScore").textContent =
       this.teamData.totalScore;
+
+    document.getElementById("finalRank").textContent = response.data.rank;
   }
 
   updateLeaderboardUI(leaderboard) {
