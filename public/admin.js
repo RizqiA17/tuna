@@ -593,15 +593,16 @@ class AdminPanel {
                     this.teamsCompletedCurrentStep.size >= this.connectedTeams.size;
                 
                 nextBtn.style.display = 'block';
-                nextBtn.disabled = !allConnectedTeamsCompleted;
+                nextBtn.disabled = false;
                 
-                if (this.connectedTeams.size === 0) {
-                    nextBtn.textContent = '➡️ Lanjut ke Step Berikutnya (Tidak ada tim yang terhubung)';
-                } else {
-                    nextBtn.textContent = allConnectedTeamsCompleted ? 
-                        '➡️ Lanjut ke Step Berikutnya' : 
-                        `⏳ Menunggu Tim (${this.teamsCompletedCurrentStep.size}/${this.connectedTeams.size})`;
-                }
+                nextBtn.textContent = '➡️ Lanjut ke Step Berikutnya (Tidak ada tim yang terhubung)';
+                // if (this.connectedTeams.size === 0) {
+                //     nextBtn.textContent = '➡️ Lanjut ke Step Berikutnya (Tidak ada tim yang terhubung)';
+                // } else {
+                //     nextBtn.textContent = allConnectedTeamsCompleted ? 
+                //         '➡️ Lanjut ke Step Berikutnya' : 
+                //         `⏳ Menunggu Tim (${this.teamsCompletedCurrentStep.size}/${this.connectedTeams.size})`;
+                // }
                 
                 console.log(`🎯 Step completion: ${this.teamsCompletedCurrentStep.size}/${this.connectedTeams.size} teams completed`);
             } else {

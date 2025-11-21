@@ -183,12 +183,12 @@ router.get(
       }
 
       // Check if team has access to this position
-      if (req.team.current_position < position) {
-        return res.status(403).json({
-          success: false,
-          message: `You must complete position ${position - 1} first`,
-        });
-      }
+      // if (req.team.current_position < position) {
+      //   return res.status(403).json({
+      //     success: false,
+      //     message: `You must complete position ${position - 1} first`,
+      //   });
+      // }
 
       // Check if already completed
       const existingDecision = await executeQuery(
@@ -308,12 +308,12 @@ router.post(
       }
 
       // Check if team has access to this position
-      if (req.team.current_position < position) {
-        return res.status(403).json({
-          success: false,
-          message: `You must complete position ${position - 1} first`,
-        });
-      }
+      // if (req.team.current_position < position) {
+      //   return res.status(403).json({
+      //     success: false,
+      //     message: `You must complete position ${position - 1} first`,
+      //   });
+      // }
 
       // Check if already completed
       const existingDecision = await executeQuery(
@@ -418,12 +418,12 @@ router.post("/submit-decision", gameRateLimit, async (req, res) => {
     const normalizedArgumentation = (argumentation !== undefined && argumentation !== null) ? String(argumentation) : "";
 
     // Check if team has access to this position
-    if (team.current_position < positionNum) {
-      return res.status(403).json({
-        success: false,
-        message: `You must complete position ${positionNum - 1} first`,
-      });
-    }
+    // if (team.current_position < positionNum) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: `You must complete position ${positionNum - 1} first`,
+    //   });
+    // }
 
     // Check if already completed
     const existingDecision = await executeQuery(

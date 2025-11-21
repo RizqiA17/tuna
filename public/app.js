@@ -5,7 +5,7 @@ class TunaAdventureGame {
     this.token = localStorage.getItem("tuna_token");
     this.teamData = null;
     this.currentScenario = null;
-    this.timeLeft = 15; // 15 minutes in seconds
+    this.timeLeft =  300; // 15 minutes in seconds
     this.timer = null;
     this.playerCount = 1;
     this.socket = null;
@@ -1566,7 +1566,7 @@ class TunaAdventureGame {
     this.currentScreen = "welcome-content";
     this.currentScenarioPosition = 0;
     this.currentScenario = null;
-    this.timeLeft = 15;
+    this.timeLeft = 300;
     this.stopTimer();
     this.clearTimerState();
 
