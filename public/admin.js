@@ -595,7 +595,7 @@ class AdminPanel {
                 nextBtn.style.display = 'block';
                 nextBtn.disabled = false;
                 
-                nextBtn.textContent = '➡️ Lanjut ke Step Berikutnya (Tidak ada tim yang terhubung)';
+                nextBtn.textContent = '➡️ Lanjut ke Step Berikutnya';
                 // if (this.connectedTeams.size === 0) {
                 //     nextBtn.textContent = '➡️ Lanjut ke Step Berikutnya (Tidak ada tim yang terhubung)';
                 // } else {
