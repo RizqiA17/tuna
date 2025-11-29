@@ -3235,7 +3235,10 @@ class TunaAdventureGame {
 
     const teamData = await this.apiRequest("/game/status");
 
-    if (teamData.data.completeCurrentStep) {
+    if (teamData.data.game.status === 'menunggu') this.currentScreen = 'welcome-content'
+    else if (teamData.data.game.status === 'selesai') this.currentScreen = "complete-content";
+    else if (!teamData.data.completeCurrentStep) this.currentScreen = "scenario-content";
+    else if (teamData.data.completeCurrentStep) {
       const me = await this.apiRequest("/auth/me");
 
       const teamId = me.data.teamId;
@@ -3247,8 +3250,6 @@ class TunaAdventureGame {
 
       this.currentScreen = "results-content";
     }
-    else if (!teamData.data.completeCurrentStep) this.currentScreen = "scenario-content";
-    else if (teamData.data.game.status === 'selesai') this.currentScreen = "complete-content";
     else this.currentScreen = "welcome-content";
 
     if (this.shouldShowExplicitScreen()) {
