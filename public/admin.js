@@ -458,11 +458,13 @@ class AdminPanel {
     });
 
     // Listen for game state updates from server
-    this.socket.on("game-state-update", (data) => {
+    this.socket.on("game-state-update", async (data) => {
       console.log("🔄 Game state update from server:", data);
 
-      const gameState = this.apiRequest("/admin/game-status");
-      const gameStep = this.apiRequest("/admin/game-position")
+      const gameState = await this.apiRequest("/admin/game-status");
+      const gameStep = await this.apiRequest("/admin/game-position")
+      console.log(gameState)
+      console.log(gameStep)
       const oldGameState = this.gameState;
       this.gameState = gameState.data.status;
       this.currentStep = gameStep.data.position;
@@ -1480,12 +1482,12 @@ class AdminPanel {
         const adminState = JSON.parse(savedState);
         this.currentSection = adminState.currentSection || "overview";
 
-        const gameState = this.apiRequest("/admin/game-status");
-        const gameStep = this.apiRequest("/admin/game-position")
+        const gameState = await this.apiRequest("/admin/game-status");
+        const gameStep = await this.apiRequest("/admin/game-position")
 
         // Restore game state from localStorage to maintain UI state
         this.gameState = gameState.data.status || "waiting";
-        this.currentStep = currentStep.data.position;
+        this.currentStep = gameStep.data.position;
         this.teamsCompletedCurrentStep = new Set(
           adminState.teamsCompletedCurrentStep || []
         );
