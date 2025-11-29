@@ -483,6 +483,12 @@ class TunaAdventureGame {
         }
       }
 
+      const status = await this.apiRequest("/game/status");
+
+      if (status.data.completeCurrentStep) {
+        this.currentScreen = 'complete-content';
+      }
+
       // Explicitly hide login screen and show game screen
       this.hideLoginScreen();
       this.showScreen("game-screen");
@@ -1790,6 +1796,56 @@ class TunaAdventureGame {
   }
 
   // Auto-submit dengan jawaban yang ada atau kosong saat timer habis
+  async processSubmitDecision({ position, decision, argumentation }) {
+    try {
+      const response = await this.apiRequest("/game/submit-decision", {
+        method: "POST",
+        body: JSON.stringify({ position, decision, argumentation })
+      });
+
+      if (!response.success) {
+        throw new Error("Submission rejected by server");
+      }
+
+      this.teamData.totalScore = response.team.total_score;
+      this.teamData.currentPosition = response.team.current_position;
+
+      if (this.socket) {
+        const teamId = this.teamData.teamId || this.teamData.id;
+
+        this.socket.emit("team-progress", {
+          teamId,
+          currentPosition: this.teamData.currentPosition,
+          totalScore: this.teamData.totalScore,
+          isCompleted: this.teamData.currentPosition > 7
+        });
+
+        this.socket.emit("team-decision", {
+          teamId,
+          position,
+          score: response.result.score
+        });
+      }
+
+      this.updateGameStateUI();
+      this.currentScreen = "results-content";
+      this.saveGameState();
+
+      await this.showResults(response.result);
+
+      return { ok: true, response };
+    } catch (error) {
+      this.logger.error("Submit decision failed", {
+        error: error.message,
+        stack: error.stack
+      });
+
+      return { ok: false, error };
+    }
+  }
+
+
+
   async autoSubmitOnTimeout() {
     console.log("🚨 AUTO-SUBMIT TRIGGERED - Timer expired!");
     this.logger.info("Auto-submitting due to timeout", {
@@ -1797,12 +1853,12 @@ class TunaAdventureGame {
       hasTeamData: !!this.teamData
     });
 
-    // Check if we have current scenario and team data
     if (!this.currentScenario || !this.teamData) {
       this.logger.error("Cannot auto-submit: missing scenario or team data", {
         hasScenario: !!this.currentScenario,
         hasTeamData: !!this.teamData
       });
+
       this.showNotification(
         "Tidak dapat mengirim jawaban otomatis. Silakan refresh halaman.",
         "error"
@@ -1810,113 +1866,74 @@ class TunaAdventureGame {
       return;
     }
 
-    // Check if there are existing answers in the form fields
-    // Use whatever is in the fields - if empty, use empty strings
-    const existingDecision = document.getElementById("decision")?.value?.trim() || "";
-    const existingReasoning = document.getElementById("reasoning")?.value?.trim() || "";
+    const decision = document.getElementById("decision")?.value?.trim() || "";
+    const argumentation = document.getElementById("reasoning")?.value?.trim() || "";
 
-    // Use whatever values are in the form fields (even if empty or only one is filled)
-    // Server will accept empty strings and save them as empty
-    const decision = existingDecision;
-    const argumentation = existingReasoning;
+    const hasInput = decision || argumentation;
 
-    if (existingDecision || existingReasoning) {
-      console.log("📝 Using existing answers from form fields (may be partial)");
-      this.logger.info("Using existing form data for auto-submit", {
-        hasDecision: !!existingDecision,
-        hasReasoning: !!existingReasoning,
-        decisionLength: existingDecision.length,
-        reasoningLength: existingReasoning.length
-      });
-    } else {
-      console.log("⏰ No existing answers found, sending empty strings");
-      this.logger.info("No form data found, sending empty strings");
-    }
-
-    // Prepare auto-submit data
-    const data = {
+    const payload = {
       position: this.currentScenario.position,
-      decision: decision,
-      argumentation: argumentation
+      decision,
+      argumentation
     };
 
-    try {
-      console.log("🚀 Submitting timeout response...", data);
-      this.logger.info("Submitting timeout response", {
-        position: data.position,
-        decision: data.decision.substring(0, 50) + "...",
-        argumentation: data.argumentation.substring(0, 50) + "..."
-      });
+    const result = await this.processSubmitDecision(payload);
 
-      const response = await this.apiRequest("/game/submit-decision", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-
-      if (response.success) {
-        // Update team data
-        this.teamData.totalScore = response.team.total_score;
-        this.teamData.currentPosition = response.team.current_position;
-
-        // Send progress update to admin
-        if (this.socket) {
-          const teamId = this.teamData.teamId || this.teamData.id;
-          this.socket.emit("team-progress", {
-            teamId: teamId,
-            currentPosition: this.teamData.currentPosition,
-            totalScore: this.teamData.totalScore,
-            isCompleted: this.teamData.currentPosition > 7,
-          });
-
-          this.socket.emit("team-decision", {
-            teamId: teamId,
-            position: this.currentScenario.position,
-            score: response.result.score,
-          });
-        }
-
-        // Update game state UI
-        this.updateGameStateUI();
-
-        // Update current screen state
-        this.currentScreen = "results-content";
-        this.saveGameState();
-
-        // Show results
-        await this.showResults(response.result);
-
-        // Show appropriate notification based on whether existing answers were used
-        if (existingDecision || existingReasoning) {
-          // At least one field had content (even if partial)
-          this.showNotification(
-            "Jawaban yang sudah diisi dikirim otomatis karena waktu habis!",
-            "warning"
-          );
-        } else {
-          // Both fields were empty
-          this.showNotification(
-            "Jawaban kosong dikirim otomatis karena waktu habis!",
-            "warning"
-          );
-        }
-
-        this.logger.info("Auto-submit successful", {
-          score: response.result.score,
-          newPosition: this.teamData.currentPosition,
-          newTotalScore: this.teamData.totalScore
-        });
-      }
-    } catch (error) {
-      this.logger.error("Auto-submit failed", {
-        error: error.message,
-        stack: error.stack
-      });
+    if (!result.ok) {
       this.showNotification(
         "Gagal mengirim jawaban otomatis. Silakan hubungi admin.",
         "error"
       );
+      return;
+    }
+
+    if (hasInput) {
+      this.showNotification(
+        "Jawaban yang sudah diisi dikirim otomatis karena waktu habis!",
+        "warning"
+      );
+    } else {
+      this.showNotification(
+        "Jawaban kosong dikirim otomatis karena waktu habis!",
+        "warning"
+      );
+    }
+
+    this.logger.info("Auto-submit successful", {
+      decisionLength: decision.length,
+      reasoningLength: argumentation.length
+    });
+  }
+
+
+
+  async forceSubmit() {
+    if (!this.currentScenario || !this.teamData) {
+      this.showNotification(
+        "Tidak dapat mengirim jawaban. Data tidak lengkap.",
+        "error"
+      );
+      return;
+    }
+
+    const decision = document.getElementById("decision")?.value?.trim() || "";
+    const argumentation = document.getElementById("reasoning")?.value?.trim() || "";
+
+    const payload = {
+      position: this.currentScenario.position,
+      decision,
+      argumentation
+    };
+
+    const result = await this.processSubmitDecision(payload);
+
+    if (result.ok) {
+      this.showNotification("Jawaban berhasil dikirim!", "success");
+    } else {
+      this.showNotification("Gagal mengirim jawaban.", "error");
     }
   }
+
 
   async showResults(result) {
     // Update UI with results
@@ -1965,6 +1982,11 @@ class TunaAdventureGame {
     this.updateGameUI();
     this.updateGameStateUI();
 
+    document.getElementById("leaderboard-content").classList.remove("active");
+    document.getElementById("welcome-content").classList.remove("active");
+    document.getElementById("scenario-content").classList.remove("active");
+    document.getElementById("decision-content").classList.remove("active");
+    console.log(['qwe'])
     if (this.teamData.currentPosition > 7) {
       // Hide results and show complete content
       document.getElementById("results-content").classList.remove("active");
@@ -1973,8 +1995,16 @@ class TunaAdventureGame {
       this.saveGameState();
       this.updateCompleteUI();
     } else {
+
+      const status = await this.apiRequest("/game/status");
+
       // Hide results and load next scenario
+      if (!status.data.completeCurrentStep) {
+        this.forceSubmit();
+      }
       document.getElementById("results-content").classList.remove("active");
+      this.currentScreen = "scenario-content";
+
 
       // Clear timer state for new scenario
       this.stopTimer();
@@ -2057,7 +2087,7 @@ class TunaAdventureGame {
     }
   }
 
-  hideLeaderboard() {
+  async hideLeaderboard() {
     // Hide leaderboard and show appropriate content
     document.getElementById("leaderboard-content").classList.remove("active");
 
@@ -2066,6 +2096,16 @@ class TunaAdventureGame {
       this.currentScreen = "complete-content";
     } else {
       document.getElementById("results-content").classList.add("active");
+
+      const me = await this.apiRequest("/auth/me");
+
+      const teamId = me.data.teamId;
+      const position = me.data.currentPosition - 1;
+
+      const response = await this.apiRequest(`/game/decision?teamId=${teamId}&position=${position}`);
+
+      this.showResults(response.data);
+
       this.currentScreen = "results-content";
     }
 
@@ -3169,28 +3209,20 @@ class TunaAdventureGame {
     }
   }
 
-  showAppropriateContent() {
-    console.log("🎯 showAppropriateContent called", {
+  async showAppropriateContent() {
+    console.log("showAppropriateContent called", {
       currentScreen: this.currentScreen,
       gameState: this.gameState,
       isGameStarted: this.isGameStarted,
       currentPosition: this.teamData?.currentPosition,
       hasCurrentScenario: !!this.currentScenario,
       currentScenario: this.currentScenario,
-      isKicked: this.isKicked,
+      isKicked: this.isKicked
     });
 
-    // DEBUG: Check DOM state before making changes
-    console.log("🔍 DOM State BEFORE showAppropriateContent:");
-    document.querySelectorAll(".content-section").forEach((el) => {
-      console.log(
-        `  ${el.id}: ${el.classList.contains("active") ? "ACTIVE" : "HIDDEN"}`
-      );
-    });
+    this.debugDOMState("BEFORE");
 
-    // Don't show any game content if team has been kicked (unless reset)
     if (this.isKicked && this.currentScreen !== "welcome-content") {
-      console.log("🚫 Team has been kicked, not showing game content");
       this.showNotification(
         "Tim Anda telah dikeluarkan dari permainan. Silakan login ulang.",
         "error"
@@ -3199,207 +3231,170 @@ class TunaAdventureGame {
       return;
     }
 
-    // Hide all content sections first
+    this.hideAllSections();
+
+    const teamData = await this.apiRequest("/game/status");
+
+    if(teamData.data.completeCurrentStep) this.currentScreen = "results-content";
+    else if(!teamData.data.completeCurrentStep) this.currentScreen = "scenario-content";
+    else if(teamData.data.game.status === 'selesai') this.currentScreen = "complete-content";
+    else this.currentScreen = "welcome-content";
+
+    if (this.shouldShowExplicitScreen()) {
+      this.activateSection(this.currentScreen);
+      this.debugDOMState("AFTER adding active class");
+      this.handleExplicitScreen();
+    } else {
+      this.showWelcomeAsDefault();
+    }
+
+    this.updateGameStateUI();
+    this.debugDOMState("FINAL");
+    this.logScenarioElements();
+  }
+
+  /* =============================================================================
+      Helper Methods
+  ============================================================================= */
+
+  hideAllSections() {
     document.querySelectorAll(".content-section").forEach((section) => {
       section.classList.remove("active");
-      console.log(`  - Removed active from: ${section.id}`);
     });
+  }
 
-    // Show the appropriate content based on current state
-    if (
+  shouldShowExplicitScreen() {
+    return (
       this.currentScreen &&
       this.currentScreen !== "game-screen" &&
       document.getElementById(this.currentScreen)
-    ) {
-      const targetElement = document.getElementById(this.currentScreen);
-      targetElement.classList.add("active");
-      console.log(`  - Added active to: ${this.currentScreen}`);
-
-      // DEBUG: Check DOM state after adding active class
-      console.log("🔍 DOM State AFTER adding active class:");
-      document.querySelectorAll(".content-section").forEach((el) => {
-        console.log(
-          `  ${el.id}: ${el.classList.contains("active") ? "ACTIVE" : "HIDDEN"
-          }`
-        );
-      });
-
-      // If showing welcome content and team has progress, update the welcome message
-      if (
-        (this.currentScreen === "welcome-content" &&
-          this.teamData &&
-          this.teamData.currentPosition > 1) ||
-        this.teamData.gameStatus == 'menunggu'
-      ) {
-        this.updateWelcomeContentForProgress();
-      }
-
-      // If showing scenario content, make sure scenario UI is updated
-      if (this.currentScreen === "scenario-content") {
-        if (this.currentScenario) {
-          console.log("  - Updating scenario UI for restored scenario");
-          this.updateScenarioUI();
-          // Don't clear form fields - user might have already filled them
-        } else if (this.teamData && this.teamData.currentPosition) {
-          console.log("🔄 Loading scenario for scenario content display...");
-          this.loadCurrentScenario();
-        }
-      }
-
-      // If showing decision content, make sure scenario data is available
-      if (this.currentScreen === "decision-content") {
-        console.log("  - Showing decision content");
-        // Ensure scenario content is hidden when showing decision
-        const scenarioContent = document.getElementById("scenario-content");
-        if (scenarioContent) {
-          scenarioContent.classList.remove("active");
-        }
-
-        // Restore timer for decision content
-        if (!this.timer && !this.isTimerRestoring) {
-          console.log("  - Restoring timer for decision content");
-          this.restoreTimerState();
-        }
-
-        // Make sure we have scenario data for decision making
-        if (this.currentScenario) {
-          console.log("  - Scenario data available for decision content");
-        } else if (this.teamData && this.teamData.currentPosition) {
-          console.log("🔄 Loading scenario for decision content display...");
-          this.loadCurrentScenario();
-        }
-      }
-
-      // If showing results content, make sure only results are visible
-      if (this.currentScreen === "results-content") {
-        console.log("  - Showing results content only");
-        // Ensure scenario content is hidden when showing results
-        const scenarioContent = document.getElementById("scenario-content");
-        if (scenarioContent) {
-          scenarioContent.classList.remove("active");
-        }
-
-        // Restore results data if available
-        console.log("🔍 Checking resultsData in showAppropriateContent:", {
-          hasResultsData: !!this.resultsData,
-          resultsData: this.resultsData,
-          currentScreen: this.currentScreen,
-        });
-
-        if (this.resultsData) {
-          console.log(
-            "  - Restoring results data for display",
-            this.resultsData
-          );
-
-          // Use setTimeout to ensure DOM is ready
-          setTimeout(() => {
-            // Check if DOM elements exist
-            const scenarioScore = document.getElementById("scenarioScore");
-            const teamDecision = document.getElementById("teamDecision");
-            const teamReasoning = document.getElementById("teamReasoning");
-            const standardDecision =
-              document.getElementById("standardDecision");
-            const standardReasoning =
-              document.getElementById("standardReasoning");
-
-            console.log("  - DOM elements check (after timeout):", {
-              scenarioScore: !!scenarioScore,
-              teamDecision: !!teamDecision,
-              teamReasoning: !!teamReasoning,
-              standardDecision: !!standardDecision,
-              standardReasoning: !!standardReasoning,
-            });
-
-            if (scenarioScore)
-              scenarioScore.textContent = this.resultsData.score;
-            if (teamDecision)
-              teamDecision.textContent = this.resultsData.teamDecision;
-            if (teamReasoning)
-              teamReasoning.textContent = this.resultsData.teamReasoning;
-            if (standardDecision)
-              standardDecision.textContent =
-                this.resultsData.standardDecision;
-            if (standardReasoning)
-              standardReasoning.textContent =
-                this.resultsData.standardReasoning;
-
-            console.log("  - Results data restored successfully");
-          }, 100);
-        } else {
-          console.log("  - No results data available to restore");
-        }
-      }
-
-      // If showing leaderboard content, make sure only leaderboard is visible
-      if (this.currentScreen === "leaderboard-content") {
-        console.log("  - Showing leaderboard content only");
-        // Ensure scenario content is hidden when showing leaderboard
-        const scenarioContent = document.getElementById("scenario-content");
-        if (scenarioContent) {
-          scenarioContent.classList.remove("active");
-        }
-
-        // DEBUG: Check DOM state after hiding scenario content
-        console.log("🔍 DOM State AFTER hiding scenario content:");
-        document.querySelectorAll(".content-section").forEach((el) => {
-          console.log(
-            `  ${el.id}: ${el.classList.contains("active") ? "ACTIVE" : "HIDDEN"
-            }`
-          );
-        });
-
-        // Load leaderboard data if not already loaded
-        if (this.teamData) {
-          console.log("  - Loading leaderboard data for display");
-          // Don't call showLeaderboard() here as it will override currentScreen
-          // Instead, just load the data and update UI
-          this.loadLeaderboardData();
-        }
-      }
-    } else {
-      // Default to welcome content if no specific screen is set or if currentScreen is game-screen
-      const welcomeElement = document.getElementById("welcome-content");
-      if (welcomeElement) {
-        welcomeElement.classList.add("active");
-        console.log(`  - Added active to welcome-content (default)`);
-
-        // Update welcome content if team has progress
-        if (this.teamData && this.teamData.currentPosition > 1) {
-          this.updateWelcomeContentForProgress();
-        }
-      } else {
-        console.error("  - welcome-content element not found!");
-      }
-    }
-
-    // Update game state UI
-    this.updateGameStateUI();
-
-    // DEBUG: Final DOM state check
-    console.log("🔍 FINAL DOM State:");
-    document.querySelectorAll(".content-section").forEach((el) => {
-      console.log(
-        `  ${el.id}: ${el.classList.contains("active") ? "ACTIVE" : "HIDDEN"}`
-      );
-    });
-
-    // DEBUG: Check scenario DOM elements
-    console.log("🔍 Scenario DOM Elements:");
-    console.log(
-      `  scenarioTitle: "${document.getElementById("scenarioTitle")?.textContent
-      }"`
-    );
-    console.log(
-      `  scenarioPosition: "${document.getElementById("scenarioPosition")?.textContent
-      }"`
-    );
-    console.log(
-      `  scenarioText: "${document
-        .getElementById("scenarioText")
-        ?.textContent?.substring(0, 50)}..."`
     );
   }
+
+  activateSection(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add("active");
+  }
+
+  handleExplicitScreen() {
+    switch (this.currentScreen) {
+      case "welcome-content":
+        this.handleWelcomeContent();
+        break;
+
+      case "scenario-content":
+        this.handleScenarioContent();
+        break;
+
+      case "decision-content":
+        this.handleDecisionContent();
+        break;
+
+      case "results-content":
+        this.handleResultsContent();
+        break;
+
+      case "leaderboard-content":
+        this.handleLeaderboardContent();
+        break;
+    }
+  }
+
+  handleWelcomeContent() {
+    if (
+      (this.teamData && this.teamData.currentPosition > 1) ||
+      this.teamData?.gameStatus === "menunggu"
+    ) {
+      this.updateWelcomeContentForProgress();
+    }
+  }
+
+  handleScenarioContent() {
+    if (this.currentScenario) {
+      this.updateScenarioUI();
+    } else if (this.teamData?.currentPosition) {
+      this.loadCurrentScenario();
+    }
+  }
+
+  handleDecisionContent() {
+    const scenarioContent = document.getElementById("scenario-content");
+    if (scenarioContent) scenarioContent.classList.remove("active");
+
+    if (!this.timer && !this.isTimerRestoring) {
+      this.restoreTimerState();
+    }
+
+    if (!this.currentScenario && this.teamData?.currentPosition) {
+      this.loadCurrentScenario();
+    }
+  }
+
+  handleResultsContent() {
+    const scenarioContent = document.getElementById("scenario-content");
+    if (scenarioContent) scenarioContent.classList.remove("active");
+
+    if (!this.resultsData) return;
+
+    setTimeout(() => {
+      const map = {
+        scenarioScore: "score",
+        teamDecision: "teamDecision",
+        teamReasoning: "teamReasoning",
+        standardDecision: "standardDecision",
+        standardReasoning: "standardReasoning"
+      };
+
+      Object.entries(map).forEach(([id, key]) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = this.resultsData[key];
+      });
+    }, 100);
+  }
+
+  handleLeaderboardContent() {
+    const scenarioContent = document.getElementById("scenario-content");
+    if (scenarioContent) scenarioContent.classList.remove("active");
+
+    if (this.teamData) {
+      this.loadLeaderboardData();
+    }
+  }
+
+  showWelcomeAsDefault() {
+    const el = document.getElementById("welcome-content");
+    if (!el) return;
+
+    el.classList.add("active");
+
+    if (this.teamData && this.teamData.currentPosition > 1) {
+      this.updateWelcomeContentForProgress();
+    }
+  }
+
+  /* =============================================================================
+      Debug Helpers
+  ============================================================================= */
+
+  debugDOMState(label) {
+    console.log(`DOM State ${label}:`);
+    document.querySelectorAll(".content-section").forEach((el) => {
+      console.log(
+        `${el.id}: ${el.classList.contains("active") ? "ACTIVE" : "HIDDEN"}`
+      );
+    });
+  }
+
+  logScenarioElements() {
+    const title = document.getElementById("scenarioTitle")?.textContent || "";
+    const pos = document.getElementById("scenarioPosition")?.textContent || "";
+    const text = document.getElementById("scenarioText")?.textContent || "";
+
+    console.log(`scenarioTitle: "${title}"`);
+    console.log(`scenarioPosition: "${pos}"`);
+    console.log(`scenarioText: "${text.substring(0, 50)}..."`);
+  }
+
 
   updateWelcomeContentForProgress() {
     if (!this.teamData || this.teamData.currentPosition <= 1) return;

@@ -142,6 +142,11 @@ router.get("/status", gameRateLimit, async (req, res) => {
       }
     }
 
+    const teamDb = await executeQuery(
+      "SELECT id, name, current_position, total_score FROM teams WHERE id = ?",
+      [team.id]
+    );
+
     // Get completed decisions
     const decisions = await executeQuery(
       "SELECT position, score FROM team_decisions WHERE team_id = ? ORDER BY position",
@@ -175,7 +180,7 @@ router.get("/status", gameRateLimit, async (req, res) => {
       data: {
         game: game[0],
         teamName: teamData.name,
-        currentPosition: gameState.currentStep,
+        currentPosition: game[0].posisi,
         totalScore: teamData.totalScore,
         isGameComplete: teamData.currentPosition > 7,
         completedDecisions: decisions,
@@ -184,7 +189,8 @@ router.get("/status", gameRateLimit, async (req, res) => {
         // Include global game state
         globalGameState: gameState.status,
         globalCurrentStep: gameState.currentStep,
-        completeCurrentStep: team.currentPosition > gameState.currentStep
+        completeCurrentStep: teamDb[0].current_position > game[0].posisi,
+        team: teamDb[0],
       },
     });
   } catch (error) {
@@ -581,6 +587,43 @@ router.post("/submit-decision", gameRateLimit, async (req, res) => {
     });
   }
 });
+
+router.get("/decision", async (req, res) => {
+  try {
+    const { teamId, position } = req.query;
+
+    const decision = await executeQuery(
+      "SELECT position, decision, reasoning, score FROM team_decisions WHERE team_id = ? AND position = ?",
+      [teamId, position]
+    );
+
+    const standardAnswer = await executeQuery(
+      "SELECT standard_answer, standard_reasoning FROM game_scenarios WHERE position = ?",
+      [position]
+    );
+
+    if (decision.length > 0) {
+      res.json({
+        success: true,
+        data: {
+          position: decision[0].position,
+          teamDecision: decision[0].decision,
+          teamArgumentation: decision[0].reasoning,
+          score: decision[0].score,
+          standardAnswer: standardAnswer[0].standard_answer,
+          standardArgumentation: standardAnswer[0].standard_reasoning,
+        },
+      });
+    } else {
+      res.json({
+        success: false,
+        message: "Decision not found",
+      });
+    }
+  } catch (error) {
+    
+  }
+})
 
 // Get next scenario
 router.post("/next-scenario", gameRateLimit, async (req, res) => {
