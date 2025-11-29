@@ -1925,7 +1925,9 @@ class TunaAdventureGame {
       argumentation
     };
 
-    const result = await this.processSubmitDecision(payload);
+    const result = await this.processSubmitDecision(payload).then(() => {
+      document.getElementById("results-content").classList.remove("active")
+    });
 
     if (result.ok) {
       this.showNotification("Jawaban berhasil dikirim!", "success");
@@ -1986,11 +1988,11 @@ class TunaAdventureGame {
     document.getElementById("welcome-content").classList.remove("active");
     document.getElementById("scenario-content").classList.remove("active");
     document.getElementById("decision-content").classList.remove("active");
-    console.log(['qwe'])
     if (this.teamData.currentPosition > 7) {
       // Hide results and show complete content
       document.getElementById("results-content").classList.remove("active");
       document.getElementById("complete-content").classList.add("active");
+      console.log(['qweqwe'])
       this.currentScreen = "complete-content";
       this.saveGameState();
       this.updateCompleteUI();
@@ -2062,6 +2064,7 @@ class TunaAdventureGame {
         this.showNotification("Gagal memuat scenario berikutnya", "error");
       }
     }
+    this.showAppropriateContent();
   }
 
   async showLeaderboard() {
