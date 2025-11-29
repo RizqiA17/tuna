@@ -16,7 +16,7 @@ const stateManager = require("../server-state-manager");
 const router = express.Router();
 
 // Rate limiting
-const gameRateLimit = rateLimit(createRateLimit(60 * 1000, 60)); // 60 requests per minute
+const gameRateLimit = rateLimit(createRateLimit(60 * 1000, 600)); // 60 requests per minute
 
 // Helper function to get game setting
 async function getGameSetting(key, defaultValue = null) {
