@@ -462,7 +462,7 @@ class AdminPanel {
       console.log("🔄 Game state update from server:", data);
 
       const gameState = this.apiRequest("/admin/game-status");
-      const gameStep = this.apiRequest("admin/game-position")
+      const gameStep = this.apiRequest("/admin/game-position")
       const oldGameState = this.gameState;
       this.gameState = gameState.data.status;
       this.currentStep = gameStep.data.position;
@@ -1480,8 +1480,8 @@ class AdminPanel {
         const adminState = JSON.parse(savedState);
         this.currentSection = adminState.currentSection || "overview";
 
-        const gameState = await this.apiRequest("/game-status");
-        const currentStep = await this.apiRequest("game-position");
+        const gameState = this.apiRequest("/admin/game-status");
+        const gameStep = this.apiRequest("/admin/game-position")
 
         // Restore game state from localStorage to maintain UI state
         this.gameState = gameState.data.status || "waiting";
