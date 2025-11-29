@@ -2214,6 +2214,7 @@ body
     border-radius: 20px;
     font-size: 0.9rem;
     transition: all 0.3s ease;
+    max-width: fit-content;
 }
 
 .status-value.waiting
