@@ -198,286 +198,287 @@
                     </div>
                 </div>
 
-            </div>
 
-            <!-- Game Settings Section -->
-            <div id="game-settings-section" class="admin-section">
-                <div class="section-header">
-                    <h2><i class="fas fa-cog"></i> Game Settings</h2>
-                    <p>Configure game settings and parameters</p>
-                </div>
+                <!-- Game Settings Section -->
+                <div id="game-settings-section" class="admin-section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-cog"></i> Game Settings</h2>
+                        <p>Configure game settings and parameters</p>
+                    </div>
 
-                <div class="game-settings-panel">
-                    <div class="settings-card">
-                        <h3><i class="fas fa-clock"></i> Waktu untuk Mengisi Jawaban</h3>
-                        <p class="setting-description">Atur durasi waktu yang diberikan kepada tim untuk mengisi jawaban
-                            setiap scenario (dalam menit).</p>
+                    <div class="game-settings-panel">
+                        <div class="settings-card">
+                            <h3><i class="fas fa-clock"></i> Waktu untuk Mengisi Jawaban</h3>
+                            <p class="setting-description">Atur durasi waktu yang diberikan kepada tim untuk mengisi
+                                jawaban
+                                setiap scenario (dalam menit).</p>
 
-                        <div class="setting-control">
-                            <label for="answerTimeLimit">Waktu (menit):</label>
-                            <div class="input-group">
-                                <input type="number" id="answerTimeLimit" min="1" max="60" step="1" class="form-input"
-                                    placeholder="15">
-                                <button id="saveTimeLimitBtn" class="btn btn-primary">
-                                    <i class="fas fa-save"></i> Simpan
-                                </button>
+                            <div class="setting-control">
+                                <label for="answerTimeLimit">Waktu (menit):</label>
+                                <div class="input-group">
+                                    <input type="number" id="answerTimeLimit" min="1" max="60" step="1"
+                                        class="form-input" placeholder="15">
+                                    <button id="saveTimeLimitBtn" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Simpan
+                                    </button>
+                                </div>
+                                <small class="form-hint">Rentang: 1-60 menit (60-3600 detik)</small>
                             </div>
-                            <small class="form-hint">Rentang: 1-60 menit (60-3600 detik)</small>
+
+                            <div id="timeLimitStatus" class="setting-status" style="display: none;"></div>
                         </div>
-
-                        <div id="timeLimitStatus" class="setting-status" style="display: none;"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Teams Section -->
-            <div id="teams-section" class="admin-section">
-                <div class="section-header">
-                    <h2><i class="fas fa-users"></i> Teams Management</h2>
-                    <p>View and manage all participating teams</p>
-                </div>
-
-                <div class="teams-filters">
-                    <div class="filter-group">
-                        <label for="teamSearch">Search Teams:</label>
-                        <input type="text" id="teamSearch" placeholder="Search by team name...">
-                    </div>
-                    <div class="filter-group">
-                        <label for="statusFilter">Status:</label>
-                        <select id="statusFilter">
-                            <option value="all">All Teams</option>
-                            <option value="active">Active</option>
-                            <option value="completed">Completed</option>
-                            <option value="inactive">Inactive</option>
-                        </select>
                     </div>
                 </div>
 
-                <div class="teams-table-container">
-                    <table class="teams-table">
-                        <thead>
-                            <tr>
-                                <th>Rank</th>
-                                <th>Team Name</th>
-                                <th>Players</th>
-                                <th>Position</th>
-                                <th>Score</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="teamsTableBody">
-                            <!-- Teams will be populated here -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Scenarios Section -->
-            <div id="scenarios-section" class="admin-section">
-                <div class="section-header">
-                    <h2><i class="fas fa-map"></i> Scenario Analysis</h2>
-                    <p>Analyze team performance by scenario</p>
-                </div>
-
-                <div class="scenarios-grid">
-                    <div class="scenario-card" data-position="1">
-                        <div class="scenario-header">
-                            <h3>Hutan Kabut</h3>
-                            <span class="scenario-position">Position 1</span>
-                        </div>
-                        <div class="scenario-stats">
-                            <div class="stat">
-                                <span class="label">Completions:</span>
-                                <span class="value" id="scenario-1-completions">-</span>
-                            </div>
-                            <div class="stat">
-                                <span class="label">Avg Score:</span>
-                                <span class="value" id="scenario-1-avg">-</span>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary btn-sm view-scenario-decisions">
-                            <i class="fas fa-eye"></i> View Decisions
-                        </button>
+                <!-- Teams Section -->
+                <div id="teams-section" class="admin-section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-users"></i> Teams Management</h2>
+                        <p>View and manage all participating teams</p>
                     </div>
 
-                    <div class="scenario-card" data-position="2">
-                        <div class="scenario-header">
-                            <h3>Sungai Deras</h3>
-                            <span class="scenario-position">Position 2</span>
+                    <div class="teams-filters">
+                        <div class="filter-group">
+                            <label for="teamSearch">Search Teams:</label>
+                            <input type="text" id="teamSearch" placeholder="Search by team name...">
                         </div>
-                        <div class="scenario-stats">
-                            <div class="stat">
-                                <span class="label">Completions:</span>
-                                <span class="value" id="scenario-2-completions">-</span>
-                            </div>
-                            <div class="stat">
-                                <span class="label">Avg Score:</span>
-                                <span class="value" id="scenario-2-avg">-</span>
-                            </div>
+                        <div class="filter-group">
+                            <label for="statusFilter">Status:</label>
+                            <select id="statusFilter">
+                                <option value="all">All Teams</option>
+                                <option value="active">Active</option>
+                                <option value="completed">Completed</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
                         </div>
-                        <button class="btn btn-primary btn-sm view-scenario-decisions">
-                            <i class="fas fa-eye"></i> View Decisions
-                        </button>
                     </div>
 
-                    <div class="scenario-card" data-position="3">
-                        <div class="scenario-header">
-                            <h3>Artefak Asing</h3>
-                            <span class="scenario-position">Position 3</span>
-                        </div>
-                        <div class="scenario-stats">
-                            <div class="stat">
-                                <span class="label">Completions:</span>
-                                <span class="value" id="scenario-3-completions">-</span>
-                            </div>
-                            <div class="stat">
-                                <span class="label">Avg Score:</span>
-                                <span class="value" id="scenario-3-avg">-</span>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary btn-sm view-scenario-decisions">
-                            <i class="fas fa-eye"></i> View Decisions
-                        </button>
-                    </div>
-
-                    <div class="scenario-card" data-position="4">
-                        <div class="scenario-header">
-                            <h3>Persimpangan Tiga Jalur</h3>
-                            <span class="scenario-position">Position 4</span>
-                        </div>
-                        <div class="scenario-stats">
-                            <div class="stat">
-                                <span class="label">Completions:</span>
-                                <span class="value" id="scenario-4-completions">-</span>
-                            </div>
-                            <div class="stat">
-                                <span class="label">Avg Score:</span>
-                                <span class="value" id="scenario-4-avg">-</span>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary btn-sm view-scenario-decisions">
-                            <i class="fas fa-eye"></i> View Decisions
-                        </button>
-                    </div>
-
-                    <div class="scenario-card" data-position="5">
-                        <div class="scenario-header">
-                            <h3>Badai di Lereng Terbuka</h3>
-                            <span class="scenario-position">Position 5</span>
-                        </div>
-                        <div class="scenario-stats">
-                            <div class="stat">
-                                <span class="label">Completions:</span>
-                                <span class="value" id="scenario-5-completions">-</span>
-                            </div>
-                            <div class="stat">
-                                <span class="label">Avg Score:</span>
-                                <span class="value" id="scenario-5-avg">-</span>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary btn-sm view-scenario-decisions">
-                            <i class="fas fa-eye"></i> View Decisions
-                        </button>
-                    </div>
-
-                    <div class="scenario-card" data-position="6">
-                        <div class="scenario-header">
-                            <h3>Teka-teki Sang Penjaga</h3>
-                            <span class="scenario-position">Position 6</span>
-                        </div>
-                        <div class="scenario-stats">
-                            <div class="stat">
-                                <span class="label">Completions:</span>
-                                <span class="value" id="scenario-6-completions">-</span>
-                            </div>
-                            <div class="stat">
-                                <span class="label">Avg Score:</span>
-                                <span class="value" id="scenario-6-avg">-</span>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary btn-sm view-scenario-decisions">
-                            <i class="fas fa-eye"></i> View Decisions
-                        </button>
-                    </div>
-
-                    <div class="scenario-card" data-position="7">
-                        <div class="scenario-header">
-                            <h3>Puncak Terakhir</h3>
-                            <span class="scenario-position">Position 7</span>
-                        </div>
-                        <div class="scenario-stats">
-                            <div class="stat">
-                                <span class="label">Completions:</span>
-                                <span class="value" id="scenario-7-completions">-</span>
-                            </div>
-                            <div class="stat">
-                                <span class="label">Avg Score:</span>
-                                <span class="value" id="scenario-7-avg">-</span>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary btn-sm view-scenario-decisions">
-                            <i class="fas fa-eye"></i> View Decisions
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Leaderboard Section -->
-            <div id="leaderboard-section" class="admin-section">
-                <div class="section-header">
-                    <h2><i class="fas fa-trophy"></i> Leaderboard</h2>
-                    <p>Current team rankings and performance</p>
-                </div>
-
-                <div class="leaderboard-container">
-                    <div class="leaderboard-filters">
-                        <button class="filter-btn active" data-filter="all">All Teams</button>
-                        <button class="filter-btn" data-filter="completed">Completed</button>
-                        <button class="filter-btn" data-filter="active">Active</button>
-                    </div>
-
-                    <div class="leaderboard-table-container">
-                        <table class="leaderboard-table">
+                    <div class="teams-table-container">
+                        <table class="teams-table">
                             <thead>
                                 <tr>
                                     <th>Rank</th>
                                     <th>Team Name</th>
-                                    <th>Score</th>
-                                    <th>Position</th>
                                     <th>Players</th>
-                                    <th>Completed</th>
-                                    <th>Avg Score</th>
-                                    <th>Last Activity</th>
+                                    <th>Position</th>
+                                    <th>Score</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="leaderboardTableBody">
-                                <!-- Leaderboard will be populated here -->
+                            <tbody id="teamsTableBody">
+                                <!-- Teams will be populated here -->
                             </tbody>
                         </table>
                     </div>
                 </div>
-            </div>
 
-            <!-- Analytics Section -->
-            <div id="analytics-section" class="admin-section" style="display: none;">
-                <div class="section-header">
-                    <h2><i class="fas fa-chart-line"></i> Analytics</h2>
-                    <p>Detailed performance analytics and insights</p>
-                </div>
-
-                <div class="analytics-grid">
-                    <div class="analytics-card">
-                        <h3>Score Distribution</h3>
-                        <div id="scoreDistributionChart" class="chart-container">
-                            <!-- Chart will be rendered here -->
-                        </div>
+                <!-- Scenarios Section -->
+                <div id="scenarios-section" class="admin-section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-map"></i> Scenario Analysis</h2>
+                        <p>Analyze team performance by scenario</p>
                     </div>
 
-                    <div class="analytics-card">
-                        <h3>Completion Timeline</h3>
-                        <div id="completionTimelineChart" class="chart-container">
-                            <!-- Chart will be rendered here -->
+                    <div class="scenarios-grid">
+                        <div class="scenario-card" data-position="1">
+                            <div class="scenario-header">
+                                <h3>Hutan Kabut</h3>
+                                <span class="scenario-position">Position 1</span>
+                            </div>
+                            <div class="scenario-stats">
+                                <div class="stat">
+                                    <span class="label">Completions:</span>
+                                    <span class="value" id="scenario-1-completions">-</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="label">Avg Score:</span>
+                                    <span class="value" id="scenario-1-avg">-</span>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary btn-sm view-scenario-decisions">
+                                <i class="fas fa-eye"></i> View Decisions
+                            </button>
+                        </div>
+
+                        <div class="scenario-card" data-position="2">
+                            <div class="scenario-header">
+                                <h3>Sungai Deras</h3>
+                                <span class="scenario-position">Position 2</span>
+                            </div>
+                            <div class="scenario-stats">
+                                <div class="stat">
+                                    <span class="label">Completions:</span>
+                                    <span class="value" id="scenario-2-completions">-</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="label">Avg Score:</span>
+                                    <span class="value" id="scenario-2-avg">-</span>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary btn-sm view-scenario-decisions">
+                                <i class="fas fa-eye"></i> View Decisions
+                            </button>
+                        </div>
+
+                        <div class="scenario-card" data-position="3">
+                            <div class="scenario-header">
+                                <h3>Artefak Asing</h3>
+                                <span class="scenario-position">Position 3</span>
+                            </div>
+                            <div class="scenario-stats">
+                                <div class="stat">
+                                    <span class="label">Completions:</span>
+                                    <span class="value" id="scenario-3-completions">-</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="label">Avg Score:</span>
+                                    <span class="value" id="scenario-3-avg">-</span>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary btn-sm view-scenario-decisions">
+                                <i class="fas fa-eye"></i> View Decisions
+                            </button>
+                        </div>
+
+                        <div class="scenario-card" data-position="4">
+                            <div class="scenario-header">
+                                <h3>Persimpangan Tiga Jalur</h3>
+                                <span class="scenario-position">Position 4</span>
+                            </div>
+                            <div class="scenario-stats">
+                                <div class="stat">
+                                    <span class="label">Completions:</span>
+                                    <span class="value" id="scenario-4-completions">-</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="label">Avg Score:</span>
+                                    <span class="value" id="scenario-4-avg">-</span>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary btn-sm view-scenario-decisions">
+                                <i class="fas fa-eye"></i> View Decisions
+                            </button>
+                        </div>
+
+                        <div class="scenario-card" data-position="5">
+                            <div class="scenario-header">
+                                <h3>Badai di Lereng Terbuka</h3>
+                                <span class="scenario-position">Position 5</span>
+                            </div>
+                            <div class="scenario-stats">
+                                <div class="stat">
+                                    <span class="label">Completions:</span>
+                                    <span class="value" id="scenario-5-completions">-</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="label">Avg Score:</span>
+                                    <span class="value" id="scenario-5-avg">-</span>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary btn-sm view-scenario-decisions">
+                                <i class="fas fa-eye"></i> View Decisions
+                            </button>
+                        </div>
+
+                        <div class="scenario-card" data-position="6">
+                            <div class="scenario-header">
+                                <h3>Teka-teki Sang Penjaga</h3>
+                                <span class="scenario-position">Position 6</span>
+                            </div>
+                            <div class="scenario-stats">
+                                <div class="stat">
+                                    <span class="label">Completions:</span>
+                                    <span class="value" id="scenario-6-completions">-</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="label">Avg Score:</span>
+                                    <span class="value" id="scenario-6-avg">-</span>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary btn-sm view-scenario-decisions">
+                                <i class="fas fa-eye"></i> View Decisions
+                            </button>
+                        </div>
+
+                        <div class="scenario-card" data-position="7">
+                            <div class="scenario-header">
+                                <h3>Puncak Terakhir</h3>
+                                <span class="scenario-position">Position 7</span>
+                            </div>
+                            <div class="scenario-stats">
+                                <div class="stat">
+                                    <span class="label">Completions:</span>
+                                    <span class="value" id="scenario-7-completions">-</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="label">Avg Score:</span>
+                                    <span class="value" id="scenario-7-avg">-</span>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary btn-sm view-scenario-decisions">
+                                <i class="fas fa-eye"></i> View Decisions
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Leaderboard Section -->
+                <div id="leaderboard-section" class="admin-section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-trophy"></i> Leaderboard</h2>
+                        <p>Current team rankings and performance</p>
+                    </div>
+
+                    <div class="leaderboard-container">
+                        <div class="leaderboard-filters">
+                            <button class="filter-btn active" data-filter="all">All Teams</button>
+                            <button class="filter-btn" data-filter="completed">Completed</button>
+                            <button class="filter-btn" data-filter="active">Active</button>
+                        </div>
+
+                        <div class="leaderboard-table-container">
+                            <table class="leaderboard-table">
+                                <thead>
+                                    <tr>
+                                        <th>Rank</th>
+                                        <th>Team Name</th>
+                                        <th>Score</th>
+                                        <th>Position</th>
+                                        <th>Players</th>
+                                        <th>Completed</th>
+                                        <th>Avg Score</th>
+                                        <th>Last Activity</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leaderboardTableBody">
+                                    <!-- Leaderboard will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analytics Section -->
+                <div id="analytics-section" class="admin-section" style="display: none;">
+                    <div class="section-header">
+                        <h2><i class="fas fa-chart-line"></i> Analytics</h2>
+                        <p>Detailed performance analytics and insights</p>
+                    </div>
+
+                    <div class="analytics-grid">
+                        <div class="analytics-card">
+                            <h3>Score Distribution</h3>
+                            <div id="scoreDistributionChart" class="chart-container">
+                                <!-- Chart will be rendered here -->
+                            </div>
+                        </div>
+
+                        <div class="analytics-card">
+                            <h3>Completion Timeline</h3>
+                            <div id="completionTimelineChart" class="chart-container">
+                                <!-- Chart will be rendered here -->
+                            </div>
                         </div>
                     </div>
                 </div>
