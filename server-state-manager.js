@@ -1,5 +1,7 @@
+const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { executeQuery } = require('./config/database');
 
 // Configuration
 const DATA_DIR = path.join(__dirname, 'data');
@@ -54,25 +56,29 @@ class GameStateManager {
    */
   async init() {
     try {
-      // Ensure data directory exists
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-        console.log('📁 Created data directory');
-      }
+      // // Ensure data directory exists
+      // if (!fs.existsSync(DATA_DIR)) {
+      //   fs.mkdirSync(DATA_DIR, { recursive: true });
+      //   console.log('📁 Created data directory');
+      // }
 
-      // Try to load existing state
-      if (fs.existsSync(SESSION_STATE_FILE)) {
-        await this.loadFromFile();
-        console.log('✅ Game state loaded from file');
-      } else {
-        console.log('📝 No existing state file, starting fresh');
-        await this.saveToFile(true);
-      }
+      // // Try to load existing state
+      // if (fs.existsSync(SESSION_STATE_FILE)) {
+      //   await this.loadFromFile();
+      //   console.log('✅ Game state loaded from file');
+      // } else {
+      //   console.log('📝 No existing state file, starting fresh');
+      //   await this.saveToFile(true);
+      // }
 
-      // Setup periodic backup
-      this.backupInterval = setInterval(() => {
-        this.createBackup();
-      }, BACKUP_INTERVAL);
+      // // Setup periodic backup
+      // this.backupInterval = setInterval(() => {
+      //   this.createBackup();
+      // }, BACKUP_INTERVAL);
+
+      const status = await executeQuery(
+        "SELECT * FROM game_status LIMIT 1 FOR UPDATE"
+      )
 
       // Setup graceful shutdown
       this.setupGracefulShutdown();

@@ -23,11 +23,15 @@ router.post("/login", adminRateLimit, async (req, res) => {
   try {
     const { username, password } = req.body;
 
+    const gameState = await executeQuery(
+      "SELECT * FROM game_status LIMIT 1"
+    );
+
     // Simple admin credentials check
     // In production, use proper admin table with hashed passwords
     if (username === "admin" && password === "tuna_admin_2024") {
       const token = generateAdminToken("admin");
-      
+
       res.json({
         success: true,
         message: "Admin login successful",
@@ -35,27 +39,139 @@ router.post("/login", adminRateLimit, async (req, res) => {
           token,
           admin: {
             id: "admin",
-            username: "admin"
-          }
-        }
+            username: "admin",
+          },
+          gameStatus: gameState[0],
+        },
       });
     } else {
       res.status(401).json({
         success: false,
-        message: "Invalid admin credentials"
+        message: "Invalid admin credentials",
       });
     }
   } catch (error) {
     console.error("Admin login error:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 });
 
 // Apply admin authentication to all other routes
 router.use(authenticateAdmin);
+
+router.get("/game-status", adminRateLimit, async (req, res) => {
+  try {
+    const status = await executeQuery(
+      "SELECT status FROM game_status LIMIT 1"
+    );
+
+    res.json({
+      success: true,
+      data: {
+        status: status[0].status == "menunggu" ? "waiting" : status[0].status == "mulai" ? "running" : "ended",
+      },
+    });
+  } catch (error) {
+    console.error("Get game status error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+router.put("/game-status", adminRateLimit, async (req, res) => {
+  try {
+    const { status } = req.body;
+
+    if (!["menunggu", "mulai", "selesai"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid game status",
+      });
+    }
+
+    const gameStatus = await executeQuery("UPDATE game_status SET status = ?", [
+      status,
+    ]);
+    // Update game status in state manager
+    stateManager.updateGameState(
+      status == "menunggu" ? "waiting" : status == "mulai" ? "running" : "ended"
+    );
+
+    res.json({
+      success: true,
+      message: "Game status updated successfully",
+      data: {
+        status,
+      },
+    });
+  } catch (error) {
+    console.error("Update game status error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+router.get("/game-position", adminRateLimit, async (req, res) => {
+  try {
+    const status = await executeQuery(
+      "SELECT posisi FROM game_status LIMIT 1"
+    );
+
+    res.json({
+      success: true,
+      data: {
+        position: status[0].posisi,
+      },
+    });
+  } catch (error) { 
+    console.error("Get game position error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+router.put("/game-position", adminRateLimit, async (req, res) => {
+  try{
+    const { position } = req.body;
+
+    if (typeof position !== "number" || position < 0 || position > 7) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid game position",
+      });
+    }
+
+    const gamePosition = await executeQuery("UPDATE game_status SET posisi = ?", [
+      position,
+    ]);
+
+    // Update game position in state manager
+    // stateManager.(position);
+
+    res.json({
+      success: true,
+      message: "Game position updated successfully",
+      data: {
+        position,
+      },
+    });
+  } catch (error) {
+    console.error("Update game position error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+})
 
 // Get all teams with their progress and scores
 router.get("/teams", adminRateLimit, async (req, res) => {
@@ -79,27 +195,27 @@ router.get("/teams", adminRateLimit, async (req, res) => {
     // Merge with real-time data from stateManager
     const allTeamsState = stateManager.getAllTeams();
     const connectedTeams = stateManager.getConnectedTeams();
-    
-    const mergedTeams = teams.map(dbTeam => {
-      const stateTeam = allTeamsState.find(t => t.id === dbTeam.id);
+
+    const mergedTeams = teams.map((dbTeam) => {
+      const stateTeam = allTeamsState.find((t) => t.id === dbTeam.id);
       const isConnected = connectedTeams.has(dbTeam.id);
-      
+
       if (stateTeam) {
         // Use real-time data from stateManager
         return {
           ...dbTeam,
           current_position: stateTeam.currentPosition,
           total_score: stateTeam.totalScore,
-          is_connected: isConnected
+          is_connected: isConnected,
         };
       }
-      
+
       return {
         ...dbTeam,
-        is_connected: isConnected
+        is_connected: isConnected,
       };
     });
-    
+
     // Sort by real-time scores
     mergedTeams.sort((a, b) => {
       if (b.total_score !== a.total_score) {
@@ -127,10 +243,9 @@ router.get("/teams/:teamId", adminRateLimit, async (req, res) => {
     const teamId = req.params.teamId;
 
     // Get team basic info
-    const teamInfo = await executeQuery(
-      "SELECT * FROM teams WHERE id = ?",
-      [teamId]
-    );
+    const teamInfo = await executeQuery("SELECT * FROM teams WHERE id = ?", [
+      teamId,
+    ]);
 
     if (!teamInfo.length) {
       return res.status(404).json({
@@ -146,7 +261,8 @@ router.get("/teams/:teamId", adminRateLimit, async (req, res) => {
     );
 
     // Get all team decisions
-    const decisions = await executeQuery(`
+    const decisions = await executeQuery(
+      `
       SELECT 
         td.*,
         gs.title as scenario_title,
@@ -158,7 +274,9 @@ router.get("/teams/:teamId", adminRateLimit, async (req, res) => {
       JOIN game_scenarios gs ON td.position = gs.position
       WHERE td.team_id = ?
       ORDER BY td.position
-    `, [teamId]);
+    `,
+      [teamId]
+    );
 
     res.json({
       success: true,
@@ -178,32 +296,36 @@ router.get("/teams/:teamId", adminRateLimit, async (req, res) => {
 });
 
 // Get all decisions for a specific scenario/position
-router.get("/scenarios/:position/decisions", adminRateLimit, async (req, res) => {
-  try {
-    const position = parseInt(req.params.position);
+router.get(
+  "/scenarios/:position/decisions",
+  adminRateLimit,
+  async (req, res) => {
+    try {
+      const position = parseInt(req.params.position);
 
-    if (position < 1 || position > 7) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid scenario position",
-      });
-    }
+      if (position < 1 || position > 7) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid scenario position",
+        });
+      }
 
-    // Get scenario info
-    const scenario = await executeQuery(
-      "SELECT * FROM game_scenarios WHERE position = ?",
-      [position]
-    );
+      // Get scenario info
+      const scenario = await executeQuery(
+        "SELECT * FROM game_scenarios WHERE position = ?",
+        [position]
+      );
 
-    if (!scenario.length) {
-      return res.status(404).json({
-        success: false,
-        message: "Scenario not found",
-      });
-    }
+      if (!scenario.length) {
+        return res.status(404).json({
+          success: false,
+          message: "Scenario not found",
+        });
+      }
 
-    // Get all team decisions for this scenario
-    const decisions = await executeQuery(`
+      // Get all team decisions for this scenario
+      const decisions = await executeQuery(
+        `
       SELECT 
         td.*,
         t.name as team_name,
@@ -213,23 +335,26 @@ router.get("/scenarios/:position/decisions", adminRateLimit, async (req, res) =>
       JOIN teams t ON td.team_id = t.id
       WHERE td.position = ?
       ORDER BY td.score DESC, td.created_at ASC
-    `, [position]);
+    `,
+        [position]
+      );
 
-    res.json({
-      success: true,
-      data: {
-        scenario: scenario[0],
-        decisions,
-      },
-    });
-  } catch (error) {
-    console.error("Get scenario decisions error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+      res.json({
+        success: true,
+        data: {
+          scenario: scenario[0],
+          decisions,
+        },
+      });
+    } catch (error) {
+      console.error("Get scenario decisions error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
   }
-});
+);
 
 // Get comprehensive leaderboard with detailed stats
 router.get("/leaderboard", adminRateLimit, async (req, res) => {
@@ -277,6 +402,8 @@ router.post("/reset-game", adminRateLimit, async (req, res) => {
         "UPDATE teams SET current_position = 1, total_score = 0"
       );
 
+      await connection.execute("UPDATE game_status SET status = 'menunggu', posisi = 0");
+
       // Clear all team decisions
       await connection.execute("DELETE FROM team_decisions");
 
@@ -307,25 +434,31 @@ router.get("/stats", adminRateLimit, async (req, res) => {
     // Get real-time data from stateManager
     const gameState = stateManager.getGameState();
     const allTeamsState = stateManager.getAllTeams();
-    
+
     // Get total teams
-    const totalTeams = await executeQuery("SELECT COUNT(*) as count FROM teams");
-    
+    const totalTeams = await executeQuery(
+      "SELECT COUNT(*) as count FROM teams"
+    );
+
     // Get active teams (teams that have made at least one decision)
     const activeTeams = await executeQuery(`
       SELECT COUNT(DISTINCT team_id) as count 
       FROM team_decisions
     `);
-    
+
     // Get completed teams from stateManager (real-time)
-    const completedTeamsCount = allTeamsState.filter(t => t.currentPosition > 7).length;
-    
+    const completedTeamsCount = allTeamsState.filter(
+      (t) => t.currentPosition > 7
+    ).length;
+
     // Get average score from stateManager (real-time)
-    const teamsWithScore = allTeamsState.filter(t => t.totalScore > 0);
-    const avgScoreRealtime = teamsWithScore.length > 0
-      ? teamsWithScore.reduce((sum, t) => sum + t.totalScore, 0) / teamsWithScore.length
-      : 0;
-    
+    const teamsWithScore = allTeamsState.filter((t) => t.totalScore > 0);
+    const avgScoreRealtime =
+      teamsWithScore.length > 0
+        ? teamsWithScore.reduce((sum, t) => sum + t.totalScore, 0) /
+          teamsWithScore.length
+        : 0;
+
     // Get scenario completion rates
     const scenarioStats = await executeQuery(`
       SELECT 
@@ -341,6 +474,10 @@ router.get("/stats", adminRateLimit, async (req, res) => {
       ORDER BY gs.position
     `);
 
+    const state = await executeQuery(
+      "SELECT * FROM game_status LIMIT 1"
+    )
+
     res.json({
       success: true,
       data: {
@@ -350,9 +487,9 @@ router.get("/stats", adminRateLimit, async (req, res) => {
         averageScore: avgScoreRealtime,
         scenarioStats,
         // Include global game state
-        gameState: gameState.status,
-        currentStep: gameState.currentStep,
-        connectedTeamsCount: gameState.connectedTeamsCount
+        gameState: state[0].status == 'menunggu' ? 'waiting' : state[0].status == 'mulai' ? 'running' : 'ended',
+        currentStep: state[0].posisi,
+        connectedTeamsCount: gameState.connectedTeamsCount,
       },
     });
   } catch (error) {
@@ -368,31 +505,31 @@ router.get("/stats", adminRateLimit, async (req, res) => {
 router.post("/archive-session", adminRateLimit, async (req, res) => {
   try {
     const gameState = stateManager.getGameState();
-    
+
     // Check if game has ended
-    if (gameState.status !== 'ended') {
+    if (gameState.status !== "ended") {
       return res.status(400).json({
         success: false,
-        message: "Can only archive when game has ended"
+        message: "Can only archive when game has ended",
       });
     }
 
     const allTeams = stateManager.getAllTeams();
-    
+
     // Archive all team decisions that haven't been saved yet
     let archivedCount = 0;
     const connection = await getConnection();
-    
+
     try {
       await connection.beginTransaction();
-      
+
       for (const team of allTeams) {
         // Update final team state in database
         await connection.execute(
           "UPDATE teams SET current_position = ?, total_score = ?, updated_at = NOW() WHERE id = ?",
           [team.currentPosition, team.totalScore, team.id]
         );
-        
+
         // Archive decisions if they exist in stateManager but not in database
         if (team.decisions && team.decisions.length > 0) {
           for (const decision of team.decisions) {
@@ -401,7 +538,7 @@ router.post("/archive-session", adminRateLimit, async (req, res) => {
               "SELECT id FROM team_decisions WHERE team_id = ? AND position = ?",
               [team.id, decision.position]
             );
-            
+
             if (existing.length === 0) {
               // Insert new decision
               await connection.execute(
@@ -411,10 +548,10 @@ router.post("/archive-session", adminRateLimit, async (req, res) => {
                 [
                   team.id,
                   decision.position,
-                  decision.decision || '',
-                  decision.reasoning || '',
+                  decision.decision || "",
+                  decision.reasoning || "",
                   decision.score || 0,
-                  decision.timestamp || new Date().toISOString()
+                  decision.timestamp || new Date().toISOString(),
                 ]
               );
               archivedCount++;
@@ -422,9 +559,9 @@ router.post("/archive-session", adminRateLimit, async (req, res) => {
           }
         }
       }
-      
+
       await connection.commit();
-      
+
       res.json({
         success: true,
         message: "Session archived successfully",
@@ -432,11 +569,13 @@ router.post("/archive-session", adminRateLimit, async (req, res) => {
           teamsArchived: allTeams.length,
           decisionsArchived: archivedCount,
           sessionStarted: gameState.sessionStarted,
-          archivedAt: new Date().toISOString()
-        }
+          archivedAt: new Date().toISOString(),
+        },
       });
-      
-      console.log(`📦 Archived session: ${allTeams.length} teams, ${archivedCount} new decisions`);
+
+      console.log(
+        `📦 Archived session: ${allTeams.length} teams, ${archivedCount} new decisions`
+      );
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -447,7 +586,7 @@ router.post("/archive-session", adminRateLimit, async (req, res) => {
     console.error("Archive session error:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 });
@@ -471,15 +610,22 @@ router.get("/export/teams", adminRateLimit, async (req, res) => {
     `);
 
     // Convert to CSV format
-    const csvHeader = "ID,Team Name,Current Position,Total Score,Player Count,Players,Created At\n";
-    const csvRows = teams.map(team => 
-      `${team.id},"${team.team_name}",${team.current_position},${team.total_score},${team.player_count},"${team.players}","${team.created_at}"`
-    ).join('\n');
+    const csvHeader =
+      "ID,Team Name,Current Position,Total Score,Player Count,Players,Created At\n";
+    const csvRows = teams
+      .map(
+        (team) =>
+          `${team.id},"${team.team_name}",${team.current_position},${team.total_score},${team.player_count},"${team.players}","${team.created_at}"`
+      )
+      .join("\n");
 
     const csvContent = csvHeader + csvRows;
 
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="teams_export.csv"');
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="teams_export.csv"'
+    );
     res.send(csvContent);
   } catch (error) {
     console.error("Export teams error:", error);
@@ -510,15 +656,29 @@ router.get("/export/decisions", adminRateLimit, async (req, res) => {
     `);
 
     // Convert to CSV format
-    const csvHeader = "ID,Team Name,Position,Scenario Title,Decision,Reasoning,Score,Created At\n";
-    const csvRows = decisions.map(decision => 
-      `${decision.id},"${decision.team_name}",${decision.position},"${decision.scenario_title}","${decision.decision.replace(/"/g, '""')}","${decision.reasoning.replace(/"/g, '""')}",${decision.score},"${decision.created_at}"`
-    ).join('\n');
+    const csvHeader =
+      "ID,Team Name,Position,Scenario Title,Decision,Reasoning,Score,Created At\n";
+    const csvRows = decisions
+      .map(
+        (decision) =>
+          `${decision.id},"${decision.team_name}",${decision.position},"${
+            decision.scenario_title
+          }","${decision.decision.replace(
+            /"/g,
+            '""'
+          )}","${decision.reasoning.replace(/"/g, '""')}",${decision.score},"${
+            decision.created_at
+          }"`
+      )
+      .join("\n");
 
     const csvContent = csvHeader + csvRows;
 
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="decisions_export.csv"');
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="decisions_export.csv"'
+    );
     res.send(csvContent);
   } catch (error) {
     console.error("Export decisions error:", error);
@@ -538,11 +698,11 @@ router.get("/game-settings", adminRateLimit, async (req, res) => {
 
     // Convert array to object for easier access
     const settingsObj = {};
-    settings.forEach(setting => {
+    settings.forEach((setting) => {
       settingsObj[setting.setting_key] = {
         value: setting.setting_value,
         description: setting.description,
-        updated_at: setting.updated_at
+        updated_at: setting.updated_at,
       };
     });
 
@@ -564,7 +724,7 @@ router.put("/game-settings", adminRateLimit, async (req, res) => {
   try {
     const { settings } = req.body;
 
-    if (!settings || typeof settings !== 'object') {
+    if (!settings || typeof settings !== "object") {
       return res.status(400).json({
         success: false,
         message: "Invalid settings format",
@@ -577,13 +737,14 @@ router.put("/game-settings", adminRateLimit, async (req, res) => {
     try {
       for (const [key, value] of Object.entries(settings)) {
         // Validate answer_time_limit
-        if (key === 'answer_time_limit') {
+        if (key === "answer_time_limit") {
           const timeLimit = parseInt(value);
           if (isNaN(timeLimit) || timeLimit < 60 || timeLimit > 3600) {
             await connection.rollback();
             return res.status(400).json({
               success: false,
-              message: "Time limit must be between 60 and 3600 seconds (1 minute to 1 hour)",
+              message:
+                "Time limit must be between 60 and 3600 seconds (1 minute to 1 hour)",
             });
           }
         }
@@ -596,7 +757,7 @@ router.put("/game-settings", adminRateLimit, async (req, res) => {
            setting_value = VALUES(setting_value),
            updated_by = VALUES(updated_by),
            updated_at = CURRENT_TIMESTAMP`,
-          [key, String(value), req.admin?.username || 'admin']
+          [key, String(value), req.admin?.username || "admin"]
         );
       }
 
@@ -608,11 +769,11 @@ router.put("/game-settings", adminRateLimit, async (req, res) => {
       );
 
       const settingsObj = {};
-      updatedSettings.forEach(setting => {
+      updatedSettings.forEach((setting) => {
         settingsObj[setting.setting_key] = {
           value: setting.setting_value,
           description: setting.description,
-          updated_at: setting.updated_at
+          updated_at: setting.updated_at,
         };
       });
 

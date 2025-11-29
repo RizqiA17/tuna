@@ -94,3 +94,10 @@ CREATE INDEX idx_game_sessions_token ON game_sessions(session_token);
 CREATE INDEX idx_team_decisions_team_position ON team_decisions(team_id, position);
 CREATE INDEX idx_game_scenarios_position ON game_scenarios(position);
 CREATE INDEX idx_game_settings_key ON game_settings(setting_key);
+
+CREATE TABLE game_status (
+    id INT NOT NULL AUTO_INCREMENT,
+    status ENUM('menunggu', 'mulai', 'selesai', '') NOT NULL,
+    posisi TINYINT NULL DEFAULT NULL,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

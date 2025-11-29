@@ -48,6 +48,10 @@ router.post(
       await connection.beginTransaction();
 
       try {
+        const gameStatus = connection.execute(
+          "SELECT status FROM game_status WHERE id = 1 FOR UPDATE"
+        )
+
         // Create team
         const teamResult = await connection.execute(
           "INSERT INTO teams (name, password) VALUES (?, ?)",
@@ -91,6 +95,7 @@ router.post(
             totalScore: 0,
             token,
             players,
+            gameStatus: (await gameStatus)[0][0].status
           },
         });
       } catch (error) {
@@ -120,6 +125,10 @@ router.post("/login", authRateLimit, validateTeamLogin, async (req, res) => {
       [teamName]
     );
 
+    const game = await executeQuery(
+      "SELECT * FROM game_status WHERE id = 1 LIMIT 1"
+    );
+
     if (!team.length) {
       return res.status(401).json({
         success: false,
@@ -136,6 +145,22 @@ router.post("/login", authRateLimit, validateTeamLogin, async (req, res) => {
       });
     }
 
+    if (game[0].posisi > team[0].current_position) {
+      await executeQuery(
+        "UPDATE teams SET current_position = ? WHERE id = ?",
+        [game[0].posisi, team[0].id]
+      )
+
+      for (let i = team[0].current_position; i < game[0].posisi; i++) {
+        try {
+          await executeQuery(
+            "INSERT INTO team_decisions (team_id, position, decision, reasoning, score) VALUES (?, ?, ?, ?, ?)",
+            [team[0].id, i, '', '', 0]
+          )
+        } catch (e) { }
+      }
+    }
+
     // Generate token
     const token = generateToken(team[0].id);
 
@@ -145,16 +170,46 @@ router.post("/login", authRateLimit, validateTeamLogin, async (req, res) => {
       [team[0].id]
     );
 
+    const gameStatus = await executeQuery(
+      "SELECT * FROM game_status WHERE id = 1"
+    );
+
+    if (gameStatus[0].status === 'menunggu') {
+      team[0].current_position = 1;
+      team[0].total_score = 0;
+      await executeQuery(
+        "UPDATE teams SET current_position = 1, total_score = 0 WHERE id = ?",
+        [team[0].id]
+      );
+
+      // Update state manager
+      stateManager.createOrUpdateTeam(team[0].id, {
+        name: team[0].name,
+        currentPosition: game[0].posisi,
+        totalScore: 0,
+        decisions: [],
+        createdAt: new Date().toISOString()
+      });
+
+      // hapus semua keputusan sebelumnya
+      await executeQuery(
+        "DELETE FROM team_decisions WHERE team_id = ?",
+        [team[0].id]
+      );
+    }
+
     res.json({
       success: true,
       message: "Login successful",
       data: {
+        game: game[0],
         teamId: team[0].id,
         teamName: team[0].name,
-        currentPosition: team[0].current_position,
+        currentPosition: game[0].posisi,
         totalScore: team[0].total_score,
         token,
         players,
+        gameStatus: gameStatus[0].status == 'menunggu' ? 'waiting' : gameStatus[0].status == 'mulai' ? 'running' : 'ended',
       },
     });
   } catch (error) {
@@ -172,20 +227,79 @@ router.get(
   require("../middleware/auth").authenticateToken,
   async (req, res) => {
     try {
+      const teamId = req.team.id;
+
+      // Find team
+      const team = await executeQuery(
+        "SELECT id, name, password, current_position, total_score FROM teams WHERE id = ?",
+        [teamId]
+      );
+
+      const game = await executeQuery(
+        "SELECT * FROM game_status WHERE id = 1 LIMIT 1"
+      );
+
+      if (game[0].posisi > team[0].current_position) {
+        await executeQuery(
+          "UPDATE teams SET current_position = ? WHERE id = ?",
+          [game[0].posisi, team[0].id]
+        )
+
+        for (let i = team[0].current_position; i < game[0].posisi; i++) {
+          try {
+            await executeQuery(
+              "INSERT INTO team_decisions (team_id, position, decision, reasoning, score) VALUES (?, ?, ?, ?, ?)",
+              [team[0].id, i, '', '', 0]
+            )
+          } catch (e) { }
+        }
+      }
+
       // Get team players
       const players = await executeQuery(
         "SELECT name, role FROM players WHERE team_id = ? ORDER BY role DESC, id ASC",
-        [req.team.id]
+        [team[0].id]
       );
+
+      const gameStatus = await executeQuery(
+        "SELECT * FROM game_status WHERE id = 1"
+      );
+
+      if (gameStatus[0].status === 'menunggu') {
+        team[0].current_position = 1;
+        team[0].total_score = 0;
+        await executeQuery(
+          "UPDATE teams SET current_position = 1, total_score = 0 WHERE id = ?",
+          [team[0].id]
+        );
+
+        // Update state manager
+        stateManager.createOrUpdateTeam(team[0].id, {
+          name: team[0].name,
+          currentPosition: game[0].posisi,
+          totalScore: 0,
+          decisions: [],
+          createdAt: new Date().toISOString()
+        });
+
+        // hapus semua keputusan sebelumnya
+        await executeQuery(
+          "DELETE FROM team_decisions WHERE team_id = ?",
+          [team[0].id]
+        );
+      }
 
       res.json({
         success: true,
+        message: "Login successful",
         data: {
-          teamId: req.team.id,
-          teamName: req.team.name,
-          currentPosition: req.team.current_position,
-          totalScore: req.team.total_score,
+          game: game[0],
+          teamId: team[0].id,
+          teamName: team[0].name,
+          currentPosition: game[0].posisi,
+          totalScore: team[0].total_score,
           players,
+          gameStatus: gameStatus[0].status == 'menunggu' ? 'waiting' : gameStatus[0].status == 'mulai' ? 'running' : 'ended',
         },
       });
     } catch (error) {

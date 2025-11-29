@@ -164,19 +164,26 @@
                         <button id="resetGameAllBtn" class="btn btn-warning btn-large">
                             <i class="fas fa-redo"></i> Reset Game for All Teams
                         </button>
-                        <button id="refreshTeamsBtn" class="btn btn-info btn-large">
+                        <button id="refreshTeamsBtn" class="btn btn-info btn-large" style="display: block;">
                             <i class="fas fa-sync-alt"></i> Refresh Team Status
                         </button>
                     </div>
                     
                     <div class="game-status">
-                        <div class="status-indicator">
                             <span class="status-label">Game Status:</span>
                             <span id="gameStatus" class="status-value">Waiting</span>
                         </div>
                         <div class="status-indicator">
                             <span class="status-label">Connected Teams:</span>
                             <span id="connectedTeamsCount" class="status-value">0</span>
+                        </div>
+                        <div class="status-indicator">
+                            <span class="status-label">Teams Completed:</span>
+                            <span id="teamCompleted" class="status-value">0/0</span>
+                        </div>
+                        <div class="status-indicator">
+                            <span class="status-label">Position:</span>
+                            <span id="currentPosition" class="status-value">0</span>
                         </div>
                     </div>
                 </div>

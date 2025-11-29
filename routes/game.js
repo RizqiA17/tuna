@@ -64,7 +64,9 @@ router.post("/start", gameRateLimit, async (req, res) => {
     }
 
     // Get time limit from database settings
-    const timeLimit = parseInt(await getGameSetting("answer_time_limit", "900"));
+    const timeLimit = parseInt(
+      await getGameSetting("answer_time_limit", "900")
+    );
 
     res.json({
       success: true,
@@ -85,10 +87,37 @@ router.post("/start", gameRateLimit, async (req, res) => {
   }
 });
 
+router.get("/game-status", gameRateLimit, async (req, res) => {
+  try {
+    const response = await executeQuery(
+      "SELECT status FROM game_status WHERE id = 1 FOR UPDATE"
+    );
+
+    res.json({
+      success: true,
+      data: {
+        status: response.length > 0 ? response[0].status : null,
+      },
+    });
+  } catch (error) {
+    console.error("Get game status error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
 // Get current game status
 router.get("/status", gameRateLimit, async (req, res) => {
   try {
+    // Get global game state
+    const gameState = stateManager.getGameState();
     const team = req.team;
+
+    const game = await executeQuery(
+      "SELECT * FROM game_status WHERE id = 1 FOR UPDATE"
+    );
 
     // Get team data from stateManager (priority), fallback to database
     let teamData = stateManager.getTeam(team.id);
@@ -101,14 +130,14 @@ router.get("/status", gameRateLimit, async (req, res) => {
       if (dbTeam.length > 0) {
         teamData = stateManager.createOrUpdateTeam(team.id, {
           name: dbTeam[0].name,
-          currentPosition: dbTeam[0].current_position,
-          totalScore: dbTeam[0].total_score
+          currentPosition: game[0].position,
+          totalScore: dbTeam[0].total_score,
         });
       } else {
         teamData = {
           name: team.name,
-          currentPosition: team.current_position,
-          totalScore: team.total_score
+          currentPosition: game[0].position,
+          totalScore: team.total_score,
         };
       }
     }
@@ -124,7 +153,7 @@ router.get("/status", gameRateLimit, async (req, res) => {
     if (teamData.currentPosition <= 7) {
       const scenario = await executeQuery(
         "SELECT * FROM game_scenarios WHERE position = ?",
-        [teamData.currentPosition]
+        [game[0].posisi]
       );
 
       if (scenario.length > 0) {
@@ -137,16 +166,16 @@ router.get("/status", gameRateLimit, async (req, res) => {
     }
 
     // Get time limit from database settings
-    const timeLimit = parseInt(await getGameSetting("answer_time_limit", "900"));
-    
-    // Get global game state
-    const gameState = stateManager.getGameState();
+    const timeLimit = parseInt(
+      await getGameSetting("answer_time_limit", "900")
+    );
 
     res.json({
       success: true,
       data: {
+        game: game[0],
         teamName: teamData.name,
-        currentPosition: teamData.currentPosition,
+        currentPosition: gameState.currentStep,
         totalScore: teamData.totalScore,
         isGameComplete: teamData.currentPosition > 7,
         completedDecisions: decisions,
@@ -154,7 +183,8 @@ router.get("/status", gameRateLimit, async (req, res) => {
         timeLimit: timeLimit,
         // Include global game state
         globalGameState: gameState.status,
-        globalCurrentStep: gameState.currentStep
+        globalCurrentStep: gameState.currentStep,
+        completeCurrentStep: team.currentPosition > gameState.currentStep
       },
     });
   } catch (error) {
@@ -288,7 +318,6 @@ router.get("/rank/:teamId", async (req, res) => {
   }
 });
 
-
 // Submit decision for a scenario
 router.post(
   "/submit-decision/:position",
@@ -405,7 +434,14 @@ router.post("/submit-decision", gameRateLimit, async (req, res) => {
 
     // Only require position. Allow decision and argumentation to be empty strings (for auto-submit)
     const positionNum = parseInt(position);
-    if (!position || position === undefined || position === null || isNaN(positionNum) || positionNum < 1 || positionNum > 7) {
+    if (
+      !position ||
+      position === undefined ||
+      position === null ||
+      isNaN(positionNum) ||
+      positionNum < 1 ||
+      positionNum > 7
+    ) {
       return res.status(400).json({
         success: false,
         message: "Valid position (1-7) is required",
@@ -414,8 +450,12 @@ router.post("/submit-decision", gameRateLimit, async (req, res) => {
 
     // Normalize decision and argumentation to empty strings if missing/undefined/null
     // This allows auto-submit with empty fields
-    const normalizedDecision = (decision !== undefined && decision !== null) ? String(decision) : "";
-    const normalizedArgumentation = (argumentation !== undefined && argumentation !== null) ? String(argumentation) : "";
+    const normalizedDecision =
+      decision !== undefined && decision !== null ? String(decision) : "";
+    const normalizedArgumentation =
+      argumentation !== undefined && argumentation !== null
+        ? String(argumentation)
+        : "";
 
     // Check if team has access to this position
     // if (team.current_position < positionNum) {
@@ -467,7 +507,13 @@ router.post("/submit-decision", gameRateLimit, async (req, res) => {
       // Save decision (with normalized values - empty strings are allowed)
       await connection.execute(
         "INSERT INTO team_decisions (team_id, position, decision, reasoning, score) VALUES (?, ?, ?, ?, ?)",
-        [team.id, positionNum, normalizedDecision, normalizedArgumentation, score]
+        [
+          team.id,
+          positionNum,
+          normalizedDecision,
+          normalizedArgumentation,
+          score,
+        ]
       );
 
       // Update team position and total score
@@ -488,7 +534,7 @@ router.post("/submit-decision", gameRateLimit, async (req, res) => {
         reasoning: normalizedArgumentation,
         score,
         newPosition,
-        newTotalScore
+        newTotalScore,
       });
 
       // Get scenario data for result
@@ -511,8 +557,14 @@ router.post("/submit-decision", gameRateLimit, async (req, res) => {
           score: score,
           teamDecision: normalizedDecision,
           teamArgumentation: normalizedArgumentation,
-          standardAnswer: scenarioData.length > 0 ? scenarioData[0].standard_answer : "Jawaban standar tidak tersedia",
-          standardArgumentation: scenarioData.length > 0 ? scenarioData[0].standard_reasoning : "Penjelasan tidak tersedia",
+          standardAnswer:
+            scenarioData.length > 0
+              ? scenarioData[0].standard_answer
+              : "Jawaban standar tidak tersedia",
+          standardArgumentation:
+            scenarioData.length > 0
+              ? scenarioData[0].standard_reasoning
+              : "Penjelasan tidak tersedia",
         },
       });
     } catch (error) {
@@ -542,7 +594,9 @@ router.post("/next-scenario", gameRateLimit, async (req, res) => {
     );
 
     // Get time limit from database settings
-    const timeLimit = parseInt(await getGameSetting("answer_time_limit", "900"));
+    const timeLimit = parseInt(
+      await getGameSetting("answer_time_limit", "900")
+    );
 
     if (nextScenario.length > 0) {
       res.json({
@@ -576,7 +630,7 @@ router.get("/leaderboard", gameRateLimit, async (req, res) => {
   try {
     // Combine data from stateManager (real-time) and database
     const allTeams = stateManager.getAllTeams();
-    
+
     // Get player counts from database
     const leaderboard = await executeQuery(`
       SELECT 
@@ -591,21 +645,21 @@ router.get("/leaderboard", gameRateLimit, async (req, res) => {
       ORDER BY t.total_score DESC, t.current_position DESC
       LIMIT 10
     `);
-    
+
     // Merge with real-time data from stateManager
-    const mergedLeaderboard = leaderboard.map(dbTeam => {
-      const stateTeam = allTeams.find(t => t.id === dbTeam.id);
+    const mergedLeaderboard = leaderboard.map((dbTeam) => {
+      const stateTeam = allTeams.find((t) => t.id === dbTeam.id);
       if (stateTeam) {
         // Use stateManager data for real-time scores
         return {
           ...dbTeam,
           total_score: stateTeam.totalScore,
-          current_position: stateTeam.currentPosition
+          current_position: stateTeam.currentPosition,
         };
       }
       return dbTeam;
     });
-    
+
     // Sort again after merge
     mergedLeaderboard.sort((a, b) => {
       if (b.total_score !== a.total_score) {
