@@ -598,6 +598,7 @@ class TunaAdventureGame {
   async loadTeamData() {
     const response = await this.apiRequest("/auth/me");
     this.teamData = response.data;
+    this.updateCompleteUI();
 
     // Join WebSocket as team (only if not already joined)
     if (this.socket && this.socket.connected && !this.hasJoinedAsTeam) {
