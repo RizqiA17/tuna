@@ -1984,88 +1984,109 @@ class TunaAdventureGame {
     this.updateGameUI();
     this.updateGameStateUI();
 
-    document.getElementById("leaderboard-content").classList.remove("active");
-    document.getElementById("welcome-content").classList.remove("active");
-    document.getElementById("scenario-content").classList.remove("active");
-    document.getElementById("decision-content").classList.remove("active");
+    this.hideSections([
+      "leaderboard-content",
+      "welcome-content",
+      "scenario-content",
+      "decision-content",
+      "results-content"
+    ]);
+
     if (this.teamData.currentPosition > 7) {
-      // Hide results and show complete content
-      document.getElementById("results-content").classList.remove("active");
-      document.getElementById("complete-content").classList.add("active");
-      console.log(['qweqwe'])
-      this.currentScreen = "complete-content";
-      this.saveGameState();
-      this.updateCompleteUI();
-    } else {
-
-      const status = await this.apiRequest("/game/status");
-
-      // Hide results and load next scenario
-      if (!status.data.completeCurrentStep) {
-        this.forceSubmit();
-      }
-      document.getElementById("results-content").classList.remove("active");
-      this.currentScreen = "scenario-content";
-
-
-      // Clear timer state for new scenario
-      this.stopTimer();
-      this.clearTimerState();
-
-      // Reset timer duration to get fresh time limit for new scenario
-      this.timeLeft = null;
-      this.timerDuration = 900; // Will be updated from API when starting decision
-
-      try {
-        const game = await this.apiRequest("/game/status");
-        // Get the next scenario directly from our game scenarios
-        const nextScenario = this.getScenarioByPosition(
-          game.data.currentPosition
-        );
-        if (nextScenario) {
-          this.currentScenario = nextScenario;
-          this.updateScenarioUI();
-          // Clear form fields for new scenario
-          this.clearDecisionFormForNewScenario();
-
-          // Get time limit from server for new scenario
-          try {
-            const statusResponse = await this.apiRequest("/game/status");
-            if (statusResponse.success && statusResponse.data.timeLimit) {
-              this.timerDuration = parseInt(statusResponse.data.timeLimit);
-              this.timeLeft = this.timerDuration;
-              this.logger.info("Updated timer duration from server", {
-                timeLimit: this.timerDuration,
-                position: this.teamData.currentPosition
-              });
-            }
-          } catch (error) {
-            this.logger.warn("Failed to get time limit from server, using default", error);
-          }
-          document.getElementById("scenario-content").classList.add("active");
-          console.log(
-            "🔄 currentScreen changed to scenario-content (line 742)"
-          );
-          this.currentScreen = "scenario-content";
-          this.saveGameState();
-          this.showNotification(
-            `Selamat! Lanjut ke Pos ${this.teamData.currentPosition}: ${nextScenario.title}`,
-            "success"
-          );
-        } else {
-          // No more scenarios
-          document.getElementById("complete-content").classList.add("active");
-          this.currentScreen = "complete-content";
-          this.saveGameState();
-          this.updateCompleteUI();
-        }
-      } catch (error) {
-        console.error("Error loading next scenario:", error);
-        this.showNotification("Gagal memuat scenario berikutnya", "error");
-      }
+      this.finishGame();
+      return this.showAppropriateContent();
     }
+
+    const status = await this.apiRequest("/game/status");
+    if (!status.data.completeCurrentStep) {
+      this.forceSubmit();
+    }
+
+    this.prepareNewScenarioTimer();
+
+    try {
+      const gameStatus = await this.apiRequest("/game/status");
+      const nextScenario = this.getScenarioByPosition(
+        gameStatus.data.currentPosition
+      );
+
+      if (!nextScenario) {
+        this.finishGame();
+        return this.showAppropriateContent();
+      }
+
+      this.currentScenario = nextScenario;
+      this.updateScenarioUI();
+      this.clearDecisionFormForNewScenario();
+
+      await this.updateTimeLimitFromServer();
+
+      if (gameStatus.data.game.status === "mulai") {
+        this.currentScreen = "scenario-content";
+        document.getElementById("scenario-content").classList.add("active");
+      } else {
+        this.finishGame();
+        return this.showAppropriateContent();
+      }
+
+      this.saveGameState();
+      this.showNotification(
+        `Selamat! Lanjut ke Pos ${this.teamData.currentPosition}: ${nextScenario.title}`,
+        "success"
+      );
+
+    } catch (error) {
+      console.error("Error loading next scenario:", error);
+      this.showNotification("Gagal memuat scenario berikutnya", "error");
+    }
+
     this.showAppropriateContent();
   }
+
+  /* ========================================================================
+      Helpers
+  ========================================================================= */
+
+  hideSections(ids) {
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove("active");
+    });
+  }
+
+  finishGame() {
+    document.getElementById("complete-content").classList.add("active");
+    this.currentScreen = "complete-content";
+    this.saveGameState();
+    this.updateCompleteUI();
+  }
+
+  prepareNewScenarioTimer() {
+    this.stopTimer();
+    this.clearTimerState();
+    this.timeLeft = null;
+    this.timerDuration = 900;
+  }
+
+  async updateTimeLimitFromServer() {
+    try {
+      const res = await this.apiRequest("/game/status");
+      const limit = res.data.timeLimit;
+
+      if (res.success && limit) {
+        this.timerDuration = parseInt(limit);
+        this.timeLeft = this.timerDuration;
+
+        this.logger.info("Updated timer duration from server", {
+          timeLimit: this.timerDuration,
+          position: this.teamData.currentPosition
+        });
+      }
+    } catch (err) {
+      this.logger.warn("Failed to get time limit from server, using default", err);
+    }
+  }
+
 
   async showLeaderboard() {
     try {
@@ -2351,6 +2372,7 @@ class TunaAdventureGame {
   }
 
   async updateCompleteUI() {
+    console.log(['sadsdsda'])
     const response = await this.apiRequest(`/game/rank/${this.teamData.teamId}`);
 
     document.getElementById("finalScore").textContent =
