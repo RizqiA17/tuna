@@ -137,7 +137,7 @@ class GameService {
             data: {
                 game: game[0],
                 teamName: teamData.name,
-                currentPosition: game[0].posisi,
+                currentPosition: teamDb[0].posisi,
                 totalScore: teamData.totalScore,
                 isGameComplete: teamData.currentPosition > 7,
                 completedDecisions: decisions,

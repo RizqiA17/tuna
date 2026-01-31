@@ -70,9 +70,9 @@ class Logger {
         const prefix = `[${logEntry.timestamp}] [${level}] [${this.context}] [${logEntry.category}]`;
         
         if (logEntry.data) {
-            console.log(`%c${prefix} ${logEntry.message}`, style, logEntry.data);
+            // console.log(`%c${prefix} ${logEntry.message}`, style, logEntry.data);
         } else {
-            console.log(`%c${prefix} ${logEntry.message}`, style);
+            // console.log(`%c${prefix} ${logEntry.message}`, style);
         }
     }
 
@@ -90,7 +90,7 @@ class Logger {
             
             localStorage.setItem(storageKey, JSON.stringify(existingLogs));
         } catch (error) {
-            console.error('Failed to save log to storage:', error);
+            // console.error('Failed to save log to storage:', error);
         }
     }
 
@@ -101,7 +101,7 @@ class Logger {
                 window.socket.emit('client-log', logEntry);
             }
         } catch (error) {
-            console.error('Failed to send log to server:', error);
+            // console.error('Failed to send log to server:', error);
         }
     }
 
