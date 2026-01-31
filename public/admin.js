@@ -1,11 +1,13 @@
 // Admin Panel JavaScript
 import { API_BASE, STORAGE_KEYS } from './js/config/constants.js';
 import { formatDate } from './js/utils/helpers.js';
+import { ApiService } from './js/services/ApiService.js';
 
 class AdminPanel {
   constructor() {
     this.apiBase = API_BASE;
     this.token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+    this.apiService = new ApiService(this.token);
     this.currentSection = "overview";
     this.teamsData = [];
     this.statsData = {};
@@ -38,7 +40,7 @@ class AdminPanel {
     if (this.token) {
       try {
         // Test if token is still valid
-        await this.apiRequest("/admin/teams");
+        await this.apiService.request("/admin/teams");
 
         // Restore admin state
         const stateRestored = this.restoreAdminState();
@@ -267,10 +269,10 @@ class AdminPanel {
         leaderboardResponse,
         settingsResponse,
       ] = await Promise.all([
-        this.apiRequest("/admin/teams"),
-        this.apiRequest("/admin/stats"),
-        this.apiRequest("/admin/leaderboard"),
-        this.apiRequest("/admin/game-settings"),
+        this.apiService.request("/admin/teams"),
+        this.apiService.request("/admin/stats"),
+        this.apiService.request("/admin/leaderboard"),
+        this.apiService.request("/admin/game-settings"),
       ]);
 
       this.updateTeamCompleted();
@@ -464,8 +466,8 @@ class AdminPanel {
     this.socket.on("game-state-update", async (data) => {
       console.log("🔄 Game state update from server:", data);
 
-      const gameState = await this.apiRequest("/admin/game-status");
-      const gameStep = await this.apiRequest("/admin/game-position")
+      const gameState = await this.apiService.request("/admin/game-status");
+      const gameStep = await this.apiService.request("/admin/game-position")
       console.log(gameState)
       console.log(gameStep)
       const oldGameState = this.gameState;
@@ -800,7 +802,7 @@ class AdminPanel {
 
     // Show all connected teams with their current data
     for (const [teamId, team] of this.connectedTeams) {
-      const response = await this.apiRequest(`/admin/teams/${teamId}`);
+      const response = await this.apiService.request(`/admin/teams/${teamId}`);
       console.log(response);
 
       const position = Math.min(response?.data?.team?.current_position ?? 0, 7);
@@ -857,31 +859,6 @@ class AdminPanel {
                 </div>
             `;
       container.appendChild(noTeamsCard);
-    }
-  }
-
-  async apiRequest(endpoint, options = {}) {
-    const url = `${this.apiBase}${endpoint}`;
-    const config = {
-      headers: {
-        "Content-Type": "application/json",
-        ...(this.token && { Authorization: `Bearer ${this.token}` }),
-      },
-      ...options,
-    };
-
-    try {
-      const response = await fetch(url, config);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Request failed");
-      }
-
-      return data;
-    } catch (error) {
-      console.error("API Error:", error);
-      throw error;
     }
   }
 
@@ -1055,7 +1032,7 @@ class AdminPanel {
   async viewTeamDetails(teamId) {
     try {
       this.showLoading(true);
-      const response = await this.apiRequest(`/admin/teams/${teamId}`);
+      const response = await this.apiService.request(`/admin/teams/${teamId}`);
       this.showTeamDetailsModal(response.data);
     } catch (error) {
       this.showNotification(
@@ -1137,7 +1114,7 @@ class AdminPanel {
   async showScenarioDecisions(position) {
     try {
       this.showLoading(true);
-      const response = await this.apiRequest(
+      const response = await this.apiService.request(
         `/admin/scenarios/${position}/decisions`
       );
       this.showScenarioDecisionsModal(response.data);
@@ -1370,13 +1347,14 @@ class AdminPanel {
 
     try {
       this.showLoading(true);
-      const response = await this.apiRequest("/admin/login", {
+      const response = await this.apiService.request("/admin/login", {
         method: "POST",
         body: JSON.stringify(data),
       });
 
       this.token = response.data.token;
-      localStorage.setItem("tuna_token", this.token);
+      localStorage.setItem(STORAGE_KEYS.TOKEN, this.token);
+      this.apiService.setToken(this.token);
       this.currentStep = response.data.gameStatus.posisi;
 
       this.showAdminPanel();
@@ -1408,6 +1386,7 @@ class AdminPanel {
   logout() {
     this.token = null;
     localStorage.removeItem(STORAGE_KEYS.TOKEN);
+    this.apiService.setToken(null);
     this.clearAdminState();
     this.showLoginScreen();
     this.showNotification("Logged out successfully", "info");
@@ -1473,8 +1452,8 @@ class AdminPanel {
         const adminState = JSON.parse(savedState);
         this.currentSection = adminState.currentSection || "overview";
 
-        const gameState = await this.apiRequest("/admin/game-status");
-        const gameStep = await this.apiRequest("/admin/game-position")
+        const gameState = await this.apiService.request("/admin/game-status");
+        const gameStep = await this.apiService.request("/admin/game-position")
 
         // Restore game state from localStorage to maintain UI state
         this.gameState = gameState.data.status || "waiting";
@@ -1507,7 +1486,7 @@ class AdminPanel {
     try {
 
       // Get all teams data to check their progress
-      const response = await this.apiRequest("/admin/teams");
+      const response = await this.apiService.request("/admin/teams");
       if (!response.success) return;
       console.log(`🔍 Checking completed teams for step ${this.currentStep}`);
 
@@ -1549,7 +1528,7 @@ class AdminPanel {
   // Check if team has submitted decision for current step
   async checkTeamDecisionForCurrentStep(teamId) {
     try {
-      const response = await this.apiRequest(`/admin/teams/${teamId}`);
+      const response = await this.apiService.request(`/admin/teams/${teamId}`);
       if (response.success) {
         const teamData = response.data;
         const hasDecisionForCurrentStep = teamData.decisions.some(
@@ -1566,7 +1545,7 @@ class AdminPanel {
   // Game Settings Methods
   async loadGameSettings() {
     try {
-      const response = await this.apiRequest("/admin/game-settings");
+      const response = await this.apiService.request("/admin/game-settings");
       if (response.success) {
         this.gameSettings = response.data;
         this.updateGameSettingsUI();
@@ -1639,7 +1618,7 @@ class AdminPanel {
     }
 
     try {
-      const response = await this.apiRequest("/admin/game-settings", {
+      const response = await this.apiService.request("/admin/game-settings", {
         method: "PUT",
         body: JSON.stringify({
           settings: {

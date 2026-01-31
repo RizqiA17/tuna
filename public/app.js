@@ -1,11 +1,13 @@
 // Tuna Adventure Game - Frontend Application
 import { API_BASE, STORAGE_KEYS } from './js/config/constants.js';
 import { delay } from './js/utils/helpers.js';
+import { ApiService } from './js/services/ApiService.js';
 
 class TunaAdventureGame {
   constructor() {
     this.apiBase = API_BASE;
     this.token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+    this.apiService = new ApiService(this.token);
     this.teamData = null;
     this.currentScenario = null;
     this.timeLeft = 300; // 15 minutes in seconds
@@ -368,66 +370,6 @@ class TunaAdventureGame {
     document.getElementById(`${tab}-form`).classList.add("active");
   }
 
-  // API Methods
-  async apiRequest(endpoint, options = {}) {
-    const url = `${this.apiBase}${endpoint}`;
-    const startTime = Date.now();
-    const requestId =
-      "req_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
-
-    this.logger.debug("API request started", {
-      url,
-      method: options.method || "GET",
-      requestId,
-      hasToken: !!this.token,
-    });
-
-    const config = {
-      headers: {
-        "Content-Type": "application/json",
-        ...(this.token && { Authorization: `Bearer ${this.token}` }),
-      },
-      ...options,
-    };
-
-    try {
-      const response = await fetch(url, config);
-      const data = await response.json();
-      const duration = Date.now() - startTime;
-
-      if (!response.ok) {
-        this.logger.error("API request failed", {
-          url,
-          status: response.status,
-          error: data.message,
-          duration,
-          requestId,
-        });
-        throw new Error(data.message || "Request failed");
-      }
-
-      this.logger.network(
-        options.method || "GET",
-        url,
-        options.body ? JSON.parse(options.body) : null,
-        data,
-        response.status,
-        duration
-      );
-
-      return data;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      this.logger.error("API request failed", {
-        url,
-        error: error.message,
-        duration,
-        requestId,
-      });
-      throw error;
-    }
-  }
-
   // Authentication
   async handleLogin() {
     const formData = new FormData(document.getElementById("loginForm"));
@@ -446,12 +388,13 @@ class TunaAdventureGame {
     }
 
     try {
-      const response = await this.apiRequest("/auth/login", {
+      const response = await this.apiService.request("/auth/login", {
         method: "POST",
         body: JSON.stringify(data),
       });
       this.token = response.data.token;
       localStorage.setItem(STORAGE_KEYS.TOKEN, this.token);
+      this.apiService.setToken(this.token);
 
       console.log([response])
 
@@ -487,7 +430,7 @@ class TunaAdventureGame {
         }
       }
 
-      const status = await this.apiRequest("/game/status");
+      const status = await this.apiService.request("/game/status");
 
       if (status.data.completeCurrentStep) {
         this.currentScreen = 'complete-content';
@@ -550,7 +493,7 @@ class TunaAdventureGame {
     };
 
     try {
-      const response = await this.apiRequest("/auth/register", {
+      const response = await this.apiService.request("/auth/register", {
         method: "POST",
         body: JSON.stringify(data),
       });
@@ -600,7 +543,7 @@ class TunaAdventureGame {
   }
 
   async loadTeamData() {
-    const response = await this.apiRequest("/auth/me");
+    const response = await this.apiService.request("/auth/me");
     this.teamData = response.data;
     this.updateCompleteUI();
 
@@ -1134,7 +1077,7 @@ class TunaAdventureGame {
 
     try {
       this.logger.info("Syncing with server after connection restore");
-      const response = await this.apiRequest("/game/status");
+      const response = await this.apiService.request("/game/status");
 
       if (response.success) {
         this.logger.info("Server sync successful", {
@@ -1401,7 +1344,7 @@ class TunaAdventureGame {
       // Check if team is continuing from a previous position
       if (this.teamData && this.teamData.currentPosition > 1) {
         // Team is continuing - get current scenario
-        const response = await this.apiRequest(
+        const response = await this.apiService.request(
           `/game/scenario/${this.teamData.currentPosition}`
         );
 
@@ -1451,7 +1394,7 @@ class TunaAdventureGame {
       }
 
       // Team is starting fresh
-      const response = await this.apiRequest("/game/start", {
+      const response = await this.apiService.request("/game/start", {
         method: "POST",
       });
 
@@ -1500,7 +1443,7 @@ class TunaAdventureGame {
     }
 
     try {
-      const response = await this.apiRequest("/game/start", {
+      const response = await this.apiService.request("/game/start", {
         method: "POST",
       });
 
@@ -1677,7 +1620,7 @@ class TunaAdventureGame {
       if (!this.timeLeft || this.timeLeft <= 0) {
         // Try to get from server first
         try {
-          const statusResponse = await this.apiRequest("/game/status");
+          const statusResponse = await this.apiService.request("/game/status");
           if (statusResponse.success && statusResponse.data.timeLimit) {
             this.timerDuration = parseInt(statusResponse.data.timeLimit);
             this.timeLeft = this.timerDuration;
@@ -1756,7 +1699,7 @@ class TunaAdventureGame {
 
     try {
       this.stopTimer();
-      const response = await this.apiRequest("/game/submit-decision", {
+      const response = await this.apiService.request("/game/submit-decision", {
         method: "POST",
         body: JSON.stringify(data),
       });
@@ -1803,7 +1746,7 @@ class TunaAdventureGame {
   // Auto-submit dengan jawaban yang ada atau kosong saat timer habis
   async processSubmitDecision({ position, decision, argumentation }) {
     try {
-      const response = await this.apiRequest("/game/submit-decision", {
+      const response = await this.apiService.request("/game/submit-decision", {
         method: "POST",
         body: JSON.stringify({ position, decision, argumentation })
       });
@@ -2002,7 +1945,7 @@ class TunaAdventureGame {
       return this.showAppropriateContent();
     }
 
-    const status = await this.apiRequest("/game/status");
+    const status = await this.apiService.request("/game/status");
     if (!status.data.completeCurrentStep) {
       this.forceSubmit();
     }
@@ -2010,7 +1953,7 @@ class TunaAdventureGame {
     this.prepareNewScenarioTimer();
 
     try {
-      const gameStatus = await this.apiRequest("/game/status");
+      const gameStatus = await this.apiService.request("/game/status");
       const nextScenario = this.getScenarioByPosition(
         gameStatus.data.currentPosition
       );
@@ -2075,7 +2018,7 @@ class TunaAdventureGame {
 
   async updateTimeLimitFromServer() {
     try {
-      const res = await this.apiRequest("/game/status");
+      const res = await this.apiService.request("/game/status");
       const limit = res.data.timeLimit;
 
       if (res.success && limit) {
@@ -2095,7 +2038,7 @@ class TunaAdventureGame {
 
   async showLeaderboard() {
     try {
-      const response = await this.apiRequest("/game/leaderboard");
+      const response = await this.apiService.request("/game/leaderboard");
       this.updateLeaderboardUI(response.data);
 
       // Hide current content and show leaderboard
@@ -2126,12 +2069,12 @@ class TunaAdventureGame {
     } else {
       document.getElementById("results-content").classList.add("active");
 
-      const me = await this.apiRequest("/auth/me");
+      const me = await this.apiService.request("/auth/me");
 
       const teamId = me.data.teamId;
       const position = me.data.currentPosition - 1;
 
-      const response = await this.apiRequest(`/game/decision?teamId=${teamId}&position=${position}`);
+      const response = await this.apiService.request(`/game/decision?teamId=${teamId}&position=${position}`);
 
       this.showResults(response.data);
 
@@ -2196,7 +2139,7 @@ class TunaAdventureGame {
     if (!this.teamData) return;
 
     try {
-      const team = await this.apiRequest(`/game/status`);
+      const team = await this.apiService.request(`/game/status`);
 
       const teamData = team.data
 
@@ -2263,7 +2206,7 @@ class TunaAdventureGame {
       console.log(
         `🔄 Loading scenario for position ${this.teamData.currentPosition}`
       );
-      const response = await this.apiRequest(
+      const response = await this.apiService.request(
         `/game/scenario/${this.teamData.currentPosition}`
       );
 
@@ -2274,7 +2217,7 @@ class TunaAdventureGame {
         this.isGameStarted = true;
         this.isWaitingForAdmin = false;
 
-        const isGameInProgress = await this.apiRequest("/game/game-status");
+        const isGameInProgress = await this.apiService.request("/game/game-status");
 
         if (isGameInProgress.data.status === "selesai") {
           this.gameState = "ended";
@@ -2378,7 +2321,7 @@ class TunaAdventureGame {
 
   async updateCompleteUI() {
     console.log(['sadsdsda'])
-    const response = await this.apiRequest(`/game/rank/${this.teamData.teamId}`);
+    const response = await this.apiService.request(`/game/rank/${this.teamData.teamId}`);
 
     document.getElementById("finalScore").textContent =
       this.teamData.totalScore;
@@ -2416,7 +2359,7 @@ class TunaAdventureGame {
   async loadLeaderboardData() {
     try {
       console.log("🔄 Loading leaderboard data for display");
-      const response = await this.apiRequest("/game/leaderboard");
+      const response = await this.apiService.request("/game/leaderboard");
       this.updateLeaderboardUI(response.data);
       console.log("✅ Leaderboard data loaded successfully");
     } catch (error) {
@@ -2827,7 +2770,7 @@ class TunaAdventureGame {
 
   async fetchServerState() {
     try {
-      const response = await this.apiRequest("/game/status");
+      const response = await this.apiService.request("/game/status");
       if (response?.success) return response.data;
       return null;
     } catch (e) {
@@ -3126,8 +3069,8 @@ class TunaAdventureGame {
       });
 
       // Get fresh data from server
-      const response = await this.apiRequest("/game/status");
-      const gameState = await this.apiRequest("/game/game-status")
+      const response = await this.apiService.request("/game/status");
+      const gameState = await this.apiService.request("/game/game-status")
 
       if (response.success && gameState.success) {
         const serverState = response.data;
@@ -3263,18 +3206,18 @@ class TunaAdventureGame {
 
     this.hideAllSections();
 
-    const teamData = await this.apiRequest("/game/status");
+    const teamData = await this.apiService.request("/game/status");
 
     if (teamData.data.game.status === 'menunggu') this.currentScreen = 'welcome-content'
     else if (teamData.data.game.status === 'selesai') this.currentScreen = "complete-content";
     else if (!teamData.data.completeCurrentStep) this.currentScreen = "scenario-content";
     else if (teamData.data.completeCurrentStep) {
-      const me = await this.apiRequest("/auth/me");
+      const me = await this.apiService.request("/auth/me");
 
       const teamId = me.data.teamId;
       const position = me.data.currentPosition - 1;
 
-      const response = await this.apiRequest(`/game/decision?teamId=${teamId}&position=${position}`);
+      const response = await this.apiService.request(`/game/decision?teamId=${teamId}&position=${position}`);
 
       this.showResults(response.data);
 
