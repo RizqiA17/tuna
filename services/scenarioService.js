@@ -20,7 +20,7 @@ class ScenarioService {
 
     // Get scenario
     const scenario = await executeQuery(
-      "SELECT position, title, scenario_text FROM game_scenarios WHERE position = ?",
+      "SELECT position, title, scenario_text as scenarioText FROM game_scenarios WHERE position = ?",
       [position]
     );
 
