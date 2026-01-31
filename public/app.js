@@ -1,8 +1,11 @@
 // Tuna Adventure Game - Frontend Application
+import { API_BASE, STORAGE_KEYS } from './js/config/constants.js';
+import { delay } from './js/utils/helpers.js';
+
 class TunaAdventureGame {
   constructor() {
-    this.apiBase = "/api";
-    this.token = localStorage.getItem("tuna_token");
+    this.apiBase = API_BASE;
+    this.token = localStorage.getItem(STORAGE_KEYS.TOKEN);
     this.teamData = null;
     this.currentScenario = null;
     this.timeLeft = 300; // 15 minutes in seconds
@@ -77,7 +80,7 @@ class TunaAdventureGame {
       this.showScreen("loading-screen");
 
       // Simulate loading
-      await this.delay(3000);
+      await delay(3000);
 
       // Add a fallback timeout to ensure we don't get stuck on loading screen
       const fallbackTimeout = setTimeout(() => {
@@ -162,6 +165,7 @@ class TunaAdventureGame {
         stack: error.stack,
       });
       // Fallback: show login screen
+      console.error(error);
       this.showScreen("login-screen");
       this.showNotification(
         "Terjadi kesalahan saat memuat aplikasi. Silakan refresh halaman.",
@@ -447,7 +451,7 @@ class TunaAdventureGame {
         body: JSON.stringify(data),
       });
       this.token = response.data.token;
-      localStorage.setItem("tuna_token", this.token);
+      localStorage.setItem(STORAGE_KEYS.TOKEN, this.token);
 
       console.log([response])
 
@@ -1595,7 +1599,7 @@ class TunaAdventureGame {
 
     // Clear all saved states and storage
     this.clearGameStateAndStorage();
-    localStorage.removeItem("tuna_timer_state");
+    localStorage.removeItem(STORAGE_KEYS.TIMER_STATE);
 
     // Update UI
     this.updateGameUI();
@@ -2515,7 +2519,7 @@ class TunaAdventureGame {
         gameState: this.gameState,
         currentScreen: this.currentScreen,
       };
-      localStorage.setItem("tuna_timer_state", JSON.stringify(timerState));
+      localStorage.setItem(STORAGE_KEYS.TIMER_STATE, JSON.stringify(timerState));
     }
   }
 
@@ -2533,7 +2537,7 @@ class TunaAdventureGame {
     }
 
     try {
-      const savedState = localStorage.getItem("tuna_timer_state");
+      const savedState = localStorage.getItem(STORAGE_KEYS.TIMER_STATE);
       this.logger.info("Timer state check", {
         hasSavedState: !!savedState,
         currentScreen: this.currentScreen
@@ -2706,7 +2710,7 @@ class TunaAdventureGame {
   }
 
   clearTimerState() {
-    localStorage.removeItem("tuna_timer_state");
+    localStorage.removeItem(STORAGE_KEYS.TIMER_STATE);
     this.isTimerRestoring = false;
   }
 
@@ -2736,7 +2740,7 @@ class TunaAdventureGame {
       gameState: this.gameState,
       stackTrace: new Error().stack
     });
-    localStorage.removeItem("tuna_game_state");
+    localStorage.removeItem(STORAGE_KEYS.GAME_STATE);
     this.clearGameState();
   }
 
@@ -2776,10 +2780,10 @@ class TunaAdventureGame {
       hasCurrentScenario: !!this.currentScenario
     });
 
-    localStorage.setItem("tuna_game_state", JSON.stringify(gameState));
+    localStorage.setItem(STORAGE_KEYS.GAME_STATE, JSON.stringify(gameState));
 
     // Verify the save worked
-    const savedState = localStorage.getItem("tuna_game_state");
+    const savedState = localStorage.getItem(STORAGE_KEYS.GAME_STATE);
     if (savedState) {
       this.logger.info("Game state saved successfully", {
         savedState: JSON.parse(savedState)
@@ -2922,7 +2926,7 @@ class TunaAdventureGame {
 
   loadSavedGameState() {
     try {
-      const saved = localStorage.getItem("tuna_game_state");
+      const saved = localStorage.getItem(STORAGE_KEYS.GAME_STATE);
       return saved ? JSON.parse(saved) : null;
     } catch (e) {
       return null;
@@ -3547,10 +3551,6 @@ class TunaAdventureGame {
     }, 5000);
   }
 
-  delay(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
   // Dark Mode Management
   toggleDarkMode() {
     const currentTheme = document.documentElement.getAttribute("data-theme");
@@ -3558,7 +3558,7 @@ class TunaAdventureGame {
 
     // Apply theme with smooth transition
     document.documentElement.setAttribute("data-theme", newTheme);
-    localStorage.setItem("tuna_theme", newTheme);
+    localStorage.setItem(STORAGE_KEYS.THEME, newTheme);
 
     // Update icon with animation
     const icon = document.getElementById("darkModeIcon");
@@ -3581,7 +3581,7 @@ class TunaAdventureGame {
   }
 
   initDarkMode() {
-    const savedTheme = localStorage.getItem("tuna_theme") || "light";
+    const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME) || "light";
     document.documentElement.setAttribute("data-theme", savedTheme);
 
     const icon = document.getElementById("darkModeIcon");

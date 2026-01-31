@@ -299,11 +299,14 @@
                   </div>
                 </div>
                 <div class="results-actions">
-                  <div class="waiting-status">
-                    <i class="fas fa-clock"></i> Menunggu Admin untuk lanjut ke pos berikutnya
+                  <div class="waiting-status" style="background: none; width: 0; padding: 0;">
+                    <!-- <i class="fas fa-clock"></i> Menunggu Admin untuk lanjut ke pos berikutnya -->
                   </div>
                   <button id="viewLeaderboardBtn" class="btn btn-secondary">
                     <i class="fas fa-trophy"></i> Lihat Peringkat
+                  </button>
+                  <button id="nextScenarioBtn" class="btn btn-secondary">
+                    Selanjutnya<i class="fas fa-arrow-right"></i>
                   </button>
                 </div>
               </div>
@@ -375,6 +378,6 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="logger.js"></script>
-    <script src="app.js"></script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>

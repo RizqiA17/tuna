@@ -1,8 +1,11 @@
 // Admin Panel JavaScript
+import { API_BASE, STORAGE_KEYS } from './js/config/constants.js';
+import { formatDate } from './js/utils/helpers.js';
+
 class AdminPanel {
   constructor() {
-    this.apiBase = "/api";
-    this.token = localStorage.getItem("tuna_token");
+    this.apiBase = API_BASE;
+    this.token = localStorage.getItem(STORAGE_KEYS.TOKEN);
     this.currentSection = "overview";
     this.teamsData = [];
     this.statsData = {};
@@ -1024,7 +1027,7 @@ class AdminPanel {
                 <td>${team.completed_scenarios || 0}</td>
                 <td>${team.average_score ? Math.round(team.average_score) : 0
         }</td>
-                <td>${this.formatDate(team.last_activity)}</td>
+                <td>${formatDate(team.last_activity)}</td>
             `;
       tbody.appendChild(row);
     });
@@ -1078,7 +1081,7 @@ class AdminPanel {
                 <p><strong>Current Position:</strong> ${data.team.current_position
       }/7</p>
                 <p><strong>Total Score:</strong> ${data.team.total_score}</p>
-                <p><strong>Created:</strong> ${this.formatDate(
+                <p><strong>Created:</strong> ${formatDate(
         data.team.created_at
       )}</p>
             </div>
@@ -1321,18 +1324,6 @@ class AdminPanel {
     return "rank-other";
   }
 
-  formatDate(dateString) {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("id-ID", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
   showLoading(show) {
     const overlay = document.getElementById("loadingOverlay");
     if (show) {
@@ -1416,7 +1407,7 @@ class AdminPanel {
 
   logout() {
     this.token = null;
-    localStorage.removeItem("tuna_token");
+    localStorage.removeItem(STORAGE_KEYS.TOKEN);
     this.clearAdminState();
     this.showLoginScreen();
     this.showNotification("Logged out successfully", "info");
@@ -1429,7 +1420,7 @@ class AdminPanel {
 
     // Apply theme with smooth transition
     document.documentElement.setAttribute("data-theme", newTheme);
-    localStorage.setItem("tuna_theme", newTheme);
+    localStorage.setItem(STORAGE_KEYS.THEME, newTheme);
 
     // Update icon with animation
     const icon = document.getElementById("darkModeIcon");
@@ -1450,7 +1441,7 @@ class AdminPanel {
   }
 
   initDarkMode() {
-    const savedTheme = localStorage.getItem("tuna_theme") || "light";
+    const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME) || "light";
     document.documentElement.setAttribute("data-theme", savedTheme);
 
     // Update icon based on saved theme
@@ -1472,12 +1463,12 @@ class AdminPanel {
       currentStep: this.currentStep,
       teamsCompletedCurrentStep: Array.from(this.teamsCompletedCurrentStep),
     };
-    localStorage.setItem("tuna_admin_state", JSON.stringify(adminState));
+    localStorage.setItem(STORAGE_KEYS.ADMIN_STATE, JSON.stringify(adminState));
   }
 
   async restoreAdminState() {
     try {
-      const savedState = localStorage.getItem("tuna_admin_state");
+      const savedState = localStorage.getItem(STORAGE_KEYS.ADMIN_STATE);
       if (savedState) {
         const adminState = JSON.parse(savedState);
         this.currentSection = adminState.currentSection || "overview";
@@ -1504,7 +1495,7 @@ class AdminPanel {
   }
 
   clearAdminState() {
-    localStorage.removeItem("tuna_admin_state");
+    localStorage.removeItem(STORAGE_KEYS.ADMIN_STATE);
   }
 
   // Check which teams have already completed current step based on database
