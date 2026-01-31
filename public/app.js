@@ -2,18 +2,19 @@
 import { API_BASE, STORAGE_KEYS } from './js/config/constants.js';
 import { delay } from './js/utils/helpers.js';
 import { ApiService } from './js/services/ApiService.js';
+import { WebSocketService } from './js/services/WebSocketService.js';
 
 class TunaAdventureGame {
   constructor() {
     this.apiBase = API_BASE;
     this.token = localStorage.getItem(STORAGE_KEYS.TOKEN);
     this.apiService = new ApiService(this.token);
+    this.wsService = new WebSocketService();
     this.teamData = null;
     this.currentScenario = null;
     this.timeLeft = 300; // 15 minutes in seconds
     this.timer = null;
     this.playerCount = 1;
-    this.socket = null;
     this.isGameStarted = false;
     this.isWaitingForAdmin = false;
     this.gameState = "waiting"; // waiting, running, ended
@@ -408,10 +409,10 @@ class TunaAdventureGame {
       }
 
       // Join WebSocket as team
-      if (this.socket && this.socket.connected) {
+      if (this.wsService && this.wsService.connected) {
         const teamId = this.teamData.teamId || this.teamData.id;
         if (teamId) {
-          this.socket.emit("team-join", {
+          this.wsService.emit("team-join", {
             teamId: teamId,
             teamName: this.teamData.teamName,
           });
@@ -504,10 +505,10 @@ class TunaAdventureGame {
       this.teamData = response.data;
 
       // Join WebSocket as team
-      if (this.socket && this.socket.connected) {
+      if (this.wsService && this.wsService.connected) {
         const teamId = this.teamData.teamId || this.teamData.id;
         if (teamId) {
-          this.socket.emit("team-join", {
+          this.wsService.emit("team-join", {
             teamId: teamId,
             teamName: this.teamData.teamName,
           });
@@ -548,7 +549,7 @@ class TunaAdventureGame {
     this.updateCompleteUI();
 
     // Join WebSocket as team (only if not already joined)
-    if (this.socket && this.socket.connected && !this.hasJoinedAsTeam) {
+    if (this.wsService && this.wsService.connected && !this.hasJoinedAsTeam) {
       const teamId = this.teamData.teamId || this.teamData.id;
 
       if (!teamId) {
@@ -565,7 +566,7 @@ class TunaAdventureGame {
         teamData: this.teamData,
       });
 
-      this.socket.emit("team-join", {
+      this.wsService.emit("team-join", {
         teamId: teamId,
         teamName: this.teamData.teamName,
       });
@@ -687,10 +688,10 @@ class TunaAdventureGame {
       }
 
       // Notify server about potential disconnection
-      if (this.socket && this.teamData && this.hasJoinedAsTeam) {
+      if (this.wsService && this.teamData && this.hasJoinedAsTeam) {
         const teamId = this.teamData.teamId || this.teamData.id;
         if (teamId) {
-          this.socket.emit("team-logout", { teamId });
+          this.wsService.emit("team-logout", { teamId });
           this.logger.info("Notified server about team logout on unload", { teamId });
         }
       }
@@ -741,8 +742,8 @@ class TunaAdventureGame {
     this.logger.info("Checking for state updates after page visibility change");
 
     // If we have a WebSocket connection, request latest state
-    if (this.socket && this.socket.connected) {
-      this.socket.emit("request-game-state");
+    if (this.wsService && this.wsService.connected) {
+      this.wsService.emit("request-game-state");
       this.logger.debug("Requested game state from server");
     }
 
@@ -1103,11 +1104,11 @@ class TunaAdventureGame {
   // WebSocket Methods
   initWebSocket() {
     try {
-      this.socket = io();
+      this.wsService.connect();
       this.logger.info("WebSocket connection initialized");
 
       // Add debugging for all WebSocket events
-      this.socket.onAny((eventName, ...args) => {
+      this.wsService.onAny((eventName, ...args) => {
         this.logger.debug("WebSocket event received", {
           event: eventName,
           args: args,
@@ -1118,14 +1119,14 @@ class TunaAdventureGame {
 
       // Add timeout for WebSocket connection
       const connectionTimeout = setTimeout(() => {
-        if (!this.socket.connected) {
+        if (!this.wsService.connected) {
           this.logger.warn(
             "WebSocket connection timeout, continuing without WebSocket"
           );
         }
       }, 5000); // 5 second timeout
 
-      this.socket.on("connect", () => {
+      this.wsService.on("connect", () => {
         clearTimeout(connectionTimeout);
         this.logger.websocket("connect", null, "IN");
 
@@ -1147,7 +1148,7 @@ class TunaAdventureGame {
             teamId: teamId,
             teamName: this.teamData.teamName,
           });
-          this.socket.emit("team-join", {
+          this.wsService.emit("team-join", {
             teamId: teamId,
             teamName: this.teamData.teamName,
           });
@@ -1175,12 +1176,12 @@ class TunaAdventureGame {
       });
 
       // Reconnect team if socket reconnects
-      this.socket.on("reconnect", () => {
+      this.wsService.on("reconnect", () => {
         console.log("🔌 Reconnected to server");
 
         // Only reconnect if team hasn't been kicked
         if (this.teamData && !this.hasJoinedAsTeam) {
-          this.socket.emit("team-join", {
+          this.wsService.emit("team-join", {
             teamId: this.teamData.id,
             teamName: this.teamData.teamName,
           });
@@ -1188,11 +1189,11 @@ class TunaAdventureGame {
         }
       });
 
-      this.socket.on("disconnect", () => {
+      this.wsService.on("disconnect", () => {
         console.log("🔌 Disconnected from server");
       });
 
-      this.socket.on("connect_error", (error) => {
+      this.wsService.on("connect_error", (error) => {
         this.logger.error("WebSocket connection error", {
           error: error.message,
         });
@@ -1205,22 +1206,22 @@ class TunaAdventureGame {
     }
 
     // Listen for admin commands
-    this.socket.on("game-start-command", () => {
+    this.wsService.on("game-start-command", () => {
       console.log("🎮 Received game start command from admin");
       this.startGameFromAdmin();
     });
 
-    this.socket.on("next-scenario-command", () => {
+    this.wsService.on("next-scenario-command", () => {
       console.log("➡️ Received next scenario command from admin");
       this.nextScenarioFromAdmin();
     });
 
-    this.socket.on("end-game-command", () => {
+    this.wsService.on("end-game-command", () => {
       console.log("🏁 Received end game command from admin");
       this.endGameFromAdmin();
     });
 
-    this.socket.on("team-kicked", () => {
+    this.wsService.on("team-kicked", () => {
       console.log("👢 Team has been kicked by admin");
       this.logger.info("Team kicked event received", {
         currentScreen: this.currentScreen,
@@ -1246,14 +1247,14 @@ class TunaAdventureGame {
       localStorage.removeItem("tuna_timer_state");
 
       // Disconnect from WebSocket to prevent reconnection
-      if (this.socket) {
-        this.socket.disconnect();
+      if (this.wsService) {
+        this.wsService.disconnect();
       }
 
       this.logout();
     });
 
-    this.socket.on("reset-game-command", () => {
+    this.wsService.on("reset-game-command", () => {
       console.log("🔄 Received reset game command from admin");
       this.logger.info("Reset game command received", {
         currentScreen: this.currentScreen,
@@ -1273,7 +1274,7 @@ class TunaAdventureGame {
     });
 
     // Listen for game state updates from server
-    this.socket.on("game-state-update", (data) => {
+    this.wsService.on("game-state-update", (data) => {
       console.log("🔄 Game state update from server:", data);
       const oldGameState = this.gameState;
       const oldStep = this.currentScenarioPosition;
@@ -1710,16 +1711,16 @@ class TunaAdventureGame {
         this.teamData.currentPosition = response.team.current_position;
 
         // Send progress update to admin
-        if (this.socket) {
+        if (this.wsService) {
           const teamId = this.teamData.teamId || this.teamData.id;
-          this.socket.emit("team-progress", {
+          this.wsService.emit("team-progress", {
             teamId: teamId,
             currentPosition: this.teamData.currentPosition,
             totalScore: this.teamData.totalScore,
             isCompleted: this.teamData.currentPosition > 7,
           });
 
-          this.socket.emit("team-decision", {
+          this.wsService.emit("team-decision", {
             teamId: teamId,
             position: this.currentScenario.position,
             score: response.result.score,
@@ -1758,17 +1759,17 @@ class TunaAdventureGame {
       this.teamData.totalScore = response.team.total_score;
       this.teamData.currentPosition = response.team.current_position;
 
-      if (this.socket) {
+      if (this.wsService) {
         const teamId = this.teamData.teamId || this.teamData.id;
 
-        this.socket.emit("team-progress", {
+        this.wsService.emit("team-progress", {
           teamId,
           currentPosition: this.teamData.currentPosition,
           totalScore: this.teamData.totalScore,
           isCompleted: this.teamData.currentPosition > 7
         });
 
-        this.socket.emit("team-decision", {
+        this.wsService.emit("team-decision", {
           teamId,
           position,
           score: response.result.score
@@ -2102,11 +2103,11 @@ class TunaAdventureGame {
     }
 
     // Notify server about logout if team is connected
-    if (this.socket && this.teamData) {
+    if (this.wsService && this.teamData) {
       const teamId = this.teamData.teamId || this.teamData.id;
       if (teamId) {
         console.log("🚪 Notifying server about team logout:", teamId);
-        this.socket.emit("team-logout", { teamId });
+        this.wsService.emit("team-logout", { teamId });
       }
     }
 

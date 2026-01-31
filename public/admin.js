@@ -2,12 +2,14 @@
 import { API_BASE, STORAGE_KEYS } from './js/config/constants.js';
 import { formatDate } from './js/utils/helpers.js';
 import { ApiService } from './js/services/ApiService.js';
+import { WebSocketService } from './js/services/WebSocketService.js';
 
 class AdminPanel {
   constructor() {
     this.apiBase = API_BASE;
     this.token = localStorage.getItem(STORAGE_KEYS.TOKEN);
     this.apiService = new ApiService(this.token);
+    this.wsService = new WebSocketService();
     this.currentSection = "overview";
     this.teamsData = [];
     this.statsData = {};
@@ -319,20 +321,20 @@ class AdminPanel {
 
   // WebSocket Methods
   initWebSocket() {
-    this.socket = io();
+    this.wsService.connect();
 
-    this.socket.on("connect", () => {
+    this.wsService.on("connect", () => {
       console.log("🔌 Admin connected to server");
-      this.socket.emit("admin-join");
+      this.wsService.emit("admin-join");
       this.showNotification("Connected to server", "success");
     });
 
-    this.socket.on("disconnect", () => {
+    this.wsService.on("disconnect", () => {
       console.log("🔌 Admin disconnected from server");
     });
 
     // Listen for team connections
-    this.socket.on("connected-teams", (teams) => {
+    this.wsService.on("connected-teams", (teams) => {
       console.log("👥 Received connected teams:", teams);
       this.connectedTeams.clear();
       teams.forEach((team) => {
@@ -346,7 +348,7 @@ class AdminPanel {
       this.checkTeamsCompletedCurrentStep();
     });
 
-    this.socket.on("team-connected", (data) => {
+    this.wsService.on("team-connected", (data) => {
       console.log("👥 Team connected:", data);
       this.connectedTeams.set(data.teamId, data);
       this.updateConnectedTeamsCount();
@@ -359,7 +361,7 @@ class AdminPanel {
       this.checkTeamsCompletedCurrentStep();
     });
 
-    this.socket.on("team-disconnected", (data) => {
+    this.wsService.on("team-disconnected", (data) => {
       console.log("👥 Team disconnected:", data);
       this.connectedTeams.delete(data.teamId);
       this.teamsCompletedCurrentStep.delete(data.teamId);
@@ -377,7 +379,7 @@ class AdminPanel {
     });
 
     // Listen for team progress updates
-    this.socket.on("team-progress-update", (data) => {
+    this.wsService.on("team-progress-update", (data) => {
       console.log("📊 Team progress update:", data);
       this.realTimeTeams.set(data.teamId, data);
 
@@ -404,7 +406,7 @@ class AdminPanel {
       this.updateGameControlButtons();
     });
 
-    this.socket.on("team-decision-submitted", (data) => {
+    this.wsService.on("team-decision-submitted", (data) => {
       console.log("📝 Team decision submitted:", data);
 
       // Update team data in connectedTeams
@@ -424,7 +426,7 @@ class AdminPanel {
     });
 
     // Listen for game status updates
-    this.socket.on("game-started", () => {
+    this.wsService.on("game-started", () => {
       console.log("🎮 Game started for all teams");
       this.gameState = "running";
       this.currentStep = 1;
@@ -435,7 +437,7 @@ class AdminPanel {
       this.showNotification("Game started for all teams", "success");
     });
 
-    this.socket.on("scenario-advanced", () => {
+    this.wsService.on("scenario-advanced", () => {
       console.log("➡️ Scenario advanced for all teams");
       this.teamsCompletedCurrentStep.clear();
       this.saveAdminState();
@@ -443,14 +445,14 @@ class AdminPanel {
       this.showNotification("Advanced to next scenario for all teams", "info");
     });
 
-    this.socket.on("game-ended", () => {
+    this.wsService.on("game-ended", () => {
       console.log("🏁 Game ended for all teams");
       this.updateGameStatus("Ended");
       this.updateGameControlButtons();
       this.showNotification("Game ended for all teams", "warning");
     });
 
-    this.socket.on("game-reset", () => {
+    this.wsService.on("game-reset", () => {
       console.log("🔄 Game reset for all teams");
       // Reset game state and current step
       this.gameState = "waiting";
@@ -463,7 +465,7 @@ class AdminPanel {
     });
 
     // Listen for game state updates from server
-    this.socket.on("game-state-update", async (data) => {
+    this.wsService.on("game-state-update", async (data) => {
       console.log("🔄 Game state update from server:", data);
 
       const gameState = await this.apiService.request("/admin/game-status");
@@ -488,11 +490,11 @@ class AdminPanel {
 
   // Game Control Methods
   async startGameForAllTeams() {
-    if (this.socket) {
+    if (this.wsService.connected) {
       this.gameState = "running";
       this.teamsCompletedCurrentStep.clear();
       this.saveAdminState();
-      this.socket.emit("start-game-all");
+      this.wsService.emit("start-game-all");
       this.updateGameStatus("Starting...");
       this.updateTeamCompleted();
       this.updateGameControlButtons();
@@ -531,12 +533,12 @@ class AdminPanel {
   }
 
   async nextScenarioForAllTeams() {
-    if (this.socket) {
+    if (this.wsService.connected) {
       // Don't increment here - will be done in scenario-advanced handler
       // this.currentStep++;
       this.teamsCompletedCurrentStep.clear();
       this.saveAdminState();
-      this.socket.emit("next-scenario-all");
+      this.wsService.emit("next-scenario-all");
       this.updateGameControlButtons();
 
       try {
@@ -596,10 +598,10 @@ class AdminPanel {
   }
 
   async endGameForAllTeams() {
-    if (this.socket) {
+    if (this.wsService.connected) {
       this.gameState = "ended";
       this.saveAdminState();
-      this.socket.emit("end-game-all");
+      this.wsService.emit("end-game-all");
       this.updateGameStatus("Ending...");
       this.updateGameControlButtons();
       const state = await fetch(`${this.apiBase}/admin/game-status`, {
@@ -644,8 +646,8 @@ class AdminPanel {
           this.saveAdminState();
 
           // Emit reset command to all teams via WebSocket
-          if (this.socket) {
-            this.socket.emit("reset-game-all");
+          if (this.wsService.connected) {
+            this.wsService.emit("reset-game-all");
           }
 
           this.updateGameStatus("Reset Complete");
@@ -675,12 +677,12 @@ class AdminPanel {
 
   kickTeam(teamId) {
     if (
-      this.socket &&
+      this.wsService.connected &&
       confirm(
         "Are you sure you want to kick this team? This will remove them from the game and they will need to rejoin."
       )
     ) {
-      this.socket.emit("kick-team", { teamId });
+      this.wsService.emit("kick-team", { teamId });
       this.showNotification("Team kicked from game", "warning");
 
       // Remove team from connected teams immediately
