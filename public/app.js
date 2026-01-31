@@ -407,7 +407,7 @@ class TunaAdventureGame {
       this.gameState = this.teamData.gameStatus || "waiting";
 
       if (this.gameState == 'waiting') {
-        this.isWaitingForAdmin = true;
+        // this.isWaitingForAdmin = true;
         localStorage.getItem('tuna_game_state');
       }
 
@@ -1287,7 +1287,7 @@ class TunaAdventureGame {
 
       // IMPORTANT: Update flags based on server state for better synchronization
       this.isGameStarted = data.isGameRunning || false;
-      this.isWaitingForAdmin = data.isWaiting || false;
+      // this.isWaitingForAdmin = data.isWaiting || false;
 
       // Update UI based on server state
       this.updateGameStateUI();
@@ -1334,13 +1334,13 @@ class TunaAdventureGame {
       return;
     }
 
-    if (this.isWaitingForAdmin) {
-      this.showNotification(
-        "Menunggu admin untuk memulai permainan...",
-        "info"
-      );
-      return;
-    }
+    // if (this.isWaitingForAdmin) {
+    //   this.showNotification(
+    //     "Menunggu admin untuk memulai permainan...",
+    //     "info"
+    //   );
+    //   return;
+    // }
 
     try {
       // Check if team is continuing from a previous position
@@ -1495,7 +1495,7 @@ class TunaAdventureGame {
     }
 
     this.isGameStarted = false;
-    this.isWaitingForAdmin = true;
+    // this.isWaitingForAdmin = true;
     this.gameState = "ended";
     this.currentScreen = "complete-content";
     this.saveGameState();
@@ -1547,8 +1547,8 @@ class TunaAdventureGame {
     if (startGameBtn) {
       if (this.gameState === "waiting" || gameStatus === "menunggu") {
         startGameBtn.style.display = "block";
-        startGameBtn.textContent = "⏳ Menunggu Admin...";
-        startGameBtn.disabled = true;
+        // startGameBtn.textContent = "⏳ Menunggu Admin...";
+        // startGameBtn.disabled = true;
       } else if (this.gameState === "running" || gameStatus === "mulai") {
         startGameBtn.style.display = "none";
       } else if (this.gameState === "ended" || gameStatus === "selesai") {
@@ -2196,7 +2196,7 @@ class TunaAdventureGame {
         } else if (isGameInProgress.data.status === "menunggu") {
           this.gameState = "waiting";
           this.isGameStarted = false;
-          this.isWaitingForAdmin = true;
+          // this.isWaitingForAdmin = true;
           this.updateGameStateUI();
           this.showAppropriateContent();
           // console.log("✅ Game is waiting, showing welcome content");
@@ -2624,7 +2624,7 @@ class TunaAdventureGame {
     // Don't remove localStorage - keep game state for restoration
     this.gameState = "waiting";
     this.isGameStarted = false;
-    this.isWaitingForAdmin = true;
+    // this.isWaitingForAdmin = true;
     this.currentScenarioPosition = 0;
     this.currentScreen = "welcome-content";
     this.currentScenario = null;
@@ -2798,7 +2798,7 @@ class TunaAdventureGame {
   restoreWelcomeState(serverState) {
     this.currentScreen = "welcome-content";
     this.gameState = "waiting";
-    this.isWaitingForAdmin = true;
+    // this.isWaitingForAdmin = true;
 
     this.currentScenarioPosition = serverState.currentPosition;
     this.currentScenario = null;
@@ -2862,7 +2862,7 @@ class TunaAdventureGame {
   restoreResultsOrLeaderboard(savedState, serverState) {
     this.currentScreen = savedState.currentScreen;
     this.gameState = "waiting";
-    this.isWaitingForAdmin = true;
+    // this.isWaitingForAdmin = true;
 
     if (savedState.currentScenario) {
       this.currentScenario = savedState.currentScenario;
@@ -2948,7 +2948,7 @@ class TunaAdventureGame {
 
     this.currentScreen = "welcome-content";
     this.gameState = "waiting";
-    this.isWaitingForAdmin = true;
+    // this.isWaitingForAdmin = true;
 
     this.showAppropriateContent();
     this.trackPerformance("restore", true);
@@ -3042,7 +3042,7 @@ class TunaAdventureGame {
         if (!serverState.currentScenario || gameState.data.status === 'menunggu') {
           this.currentScenario = null;
           this.isGameStarted = false;
-          this.isWaitingForAdmin = true;
+          // this.isWaitingForAdmin = true;
           this.currentScreen = "welcome-content";
           this.logger.info("No current scenario, showing welcome content");
         } else {
@@ -3126,8 +3126,9 @@ class TunaAdventureGame {
     this.hideAllSections();
 
     const teamData = await this.apiService.request("/game/status");
+    console.log(teamData.data.completedDecisions);
 
-    if (teamData.data.game.status === 'menunggu') this.currentScreen = 'welcome-content'
+    if (teamData.data.game.status === 'menunggu') if (teamData.data.completedDecisions.length === 0) this.currentScreen = 'welcome-content'; else this.currentScreen = "scenario-content";
     else if (teamData.data.game.status === 'selesai') this.currentScreen = "complete-content";
     else if (!teamData.data.completeCurrentStep) this.currentScreen = "scenario-content";
     else if (teamData.data.completeCurrentStep) {
@@ -3317,20 +3318,20 @@ class TunaAdventureGame {
         title.textContent = "🏆 Petualangan Selesai!";
         description.textContent = `Selamat! Tim Anda telah menyelesaikan semua tantangan dengan total skor ${this.teamData.totalScore} poin.`;
         startButton.style.display = "none";
-      } else if (this.isWaitingForAdmin) {
+        // } else if (this.isWaitingForAdmin) {
         // Waiting for admin to advance
-        title.textContent = "⏳ Menunggu Admin";
-        description.textContent = `Tim Anda telah menyelesaikan Pos ${this.teamData.currentPosition - 1
-          } dengan skor ${this.teamData.totalScore
-          } poin. Menunggu admin untuk memulai pos berikutnya.`;
-        startButton.textContent = "⏳ Menunggu Admin...";
-        startButton.disabled = true;
-      } else {
-        // Team has progress but can continue
-        title.textContent = "🎯 Lanjutkan Petualangan!";
-        description.textContent = `Tim Anda berada di Pos ${this.teamData.currentPosition} dengan total skor ${this.teamData.totalScore} poin. Siap untuk tantangan berikutnya?`;
-        startButton.textContent = "🚀 Lanjutkan Petualangan";
-        startButton.disabled = false;
+        // title.textContent = "⏳ Menunggu Admin";
+        // description.textContent = `Tim Anda telah menyelesaikan Pos ${this.teamData.currentPosition - 1
+        //   } dengan skor ${this.teamData.totalScore
+        //   } poin. Menunggu admin untuk memulai pos berikutnya.`;
+        // startButton.textContent = "⏳ Menunggu Admin...";
+        // startButton.disabled = true;
+        // } else {
+        //   // Team has progress but can continue
+        //   title.textContent = "🎯 Lanjutkan Petualangan!";
+        //   description.textContent = `Tim Anda berada di Pos ${this.teamData.currentPosition} dengan total skor ${this.teamData.totalScore} poin. Siap untuk tantangan berikutnya?`;
+        //   startButton.textContent = "🚀 Lanjutkan Petualangan";
+        //   startButton.disabled = false;
       }
     }
 
