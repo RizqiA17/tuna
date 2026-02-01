@@ -4,6 +4,7 @@ import { formatDate } from './js/utils/helpers.js';
 import { ApiService } from './js/services/ApiService.js';
 import { WebSocketService } from './js/services/WebSocketService.js';
 import { AdminUIRenderer } from './js/ui/AdminUIRenderer.js';
+import { AdminEventHandler } from './js/events/AdminEventHandler.js';
 
 class AdminPanel {
   constructor() {
@@ -24,6 +25,7 @@ class AdminPanel {
     this.gameSettings = {}; // Store game settings
     this.logger = window.AdminLogger || new Logger("ADMIN");
     this.uiRenderer = new AdminUIRenderer(this);
+    this.eventHandler = new AdminEventHandler(this);
 
     this.init();
   }
@@ -38,7 +40,6 @@ class AdminPanel {
     this.initWebSocket();
 
     this.checkRequiredElements();
-    this.setupEventListeners();
 
     // Check if user is already authenticated
     if (this.token) {
@@ -104,163 +105,7 @@ class AdminPanel {
     }
   }
 
-  setupEventListeners() {
-    // Admin login form
-    document
-      .getElementById("adminLoginForm")
-      .addEventListener("submit", (e) => {
-        e.preventDefault();
-        this.handleAdminLogin();
-      });
 
-    // Navigation
-    document.querySelectorAll(".nav-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const section = e.target.dataset.section;
-        if (section) {
-          this.showSection(section);
-        }
-      });
-    });
-
-    // Refresh data
-    document.getElementById("refreshDataBtn").addEventListener("click", () => {
-      this.loadData();
-    });
-
-    // Export data
-    document.getElementById("exportDataBtn").addEventListener("click", () => {
-      this.exportData();
-    });
-
-    // Logout
-    document.getElementById("logoutBtn").addEventListener("click", () => {
-      this.logout();
-    });
-
-    // Team search
-    document.getElementById("teamSearch").addEventListener("input", (e) => {
-      this.filterTeams(e.target.value);
-    });
-
-    // Status filter
-    document.getElementById("statusFilter").addEventListener("change", (e) => {
-      this.filterTeamsByStatus(e.target.value);
-    });
-
-    // Leaderboard filters
-    document.querySelectorAll(".filter-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        document
-          .querySelectorAll(".filter-btn")
-          .forEach((b) => b.classList.remove("active"));
-        e.target.classList.add("active");
-        this.filterLeaderboard(e.target.dataset.filter);
-      });
-    });
-
-    // Scenario decisions are now handled by event delegation above
-
-    // Modal close
-    document.querySelectorAll(".modal-close").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        this.closeModals();
-      });
-    });
-
-    // Click outside modal to close
-    document.querySelectorAll(".modal").forEach((modal) => {
-      modal.addEventListener("click", (e) => {
-        if (e.target === modal) {
-          this.closeModals();
-        }
-      });
-    });
-
-    // Dark mode toggle (if exists)
-    const darkModeBtn = document.getElementById("darkModeBtn");
-    if (darkModeBtn) {
-      darkModeBtn.addEventListener("click", () => {
-        this.toggleDarkMode();
-      });
-    }
-
-    // Game control buttons
-    const startGameAllBtn = document.getElementById("startGameAllBtn");
-    if (startGameAllBtn) {
-      startGameAllBtn.addEventListener("click", () => {
-        this.startGameForAllTeams();
-      });
-    }
-
-    const nextScenarioAllBtn = document.getElementById("nextScenarioAllBtn");
-    if (nextScenarioAllBtn) {
-      nextScenarioAllBtn.addEventListener("click", () => {
-        this.nextScenarioForAllTeams();
-      });
-    }
-
-    const endGameAllBtn = document.getElementById("endGameAllBtn");
-    if (endGameAllBtn) {
-      endGameAllBtn.addEventListener("click", () => {
-        this.endGameForAllTeams();
-      });
-    }
-
-    const resetGameAllBtn = document.getElementById("resetGameAllBtn");
-    if (resetGameAllBtn) {
-      resetGameAllBtn.addEventListener("click", () => {
-        this.resetGameForAllTeams();
-      });
-    }
-
-    const refreshTeamsBtn = document.getElementById("refreshTeamsBtn");
-    if (refreshTeamsBtn) {
-      refreshTeamsBtn.addEventListener("click", () => {
-        this.forceCheckCompletedTeams();
-        this.showNotification("Team status refreshed", "info");
-      });
-    }
-
-    // Event delegation for dynamically created buttons
-    document.addEventListener("click", (e) => {
-      if (e.target.closest(".view-team-btn")) {
-        const teamId = e.target.closest(".view-team-btn").dataset.teamId;
-        console.log("View team details clicked for team:", teamId);
-        this.viewTeamDetails(parseInt(teamId));
-      }
-
-      if (e.target.closest(".view-scenario-decisions")) {
-        const position = e.target.closest(".scenario-card").dataset.position;
-        console.log("View scenario decisions clicked for position:", position);
-        this.showScenarioDecisions(parseInt(position));
-      }
-
-      if (e.target.closest(".kick-team-btn")) {
-        const teamId = e.target.closest(".kick-team-btn").dataset.teamId;
-        console.log("Kick team clicked for team:", teamId);
-        this.kickTeam(parseInt(teamId));
-      }
-    });
-
-    // Game settings - save time limit
-    const saveTimeLimitBtn = document.getElementById("saveTimeLimitBtn");
-    if (saveTimeLimitBtn) {
-      saveTimeLimitBtn.addEventListener("click", () => {
-        this.saveTimeLimit();
-      });
-    }
-
-    // Enter key support for time limit input
-    const answerTimeLimitInput = document.getElementById("answerTimeLimit");
-    if (answerTimeLimitInput) {
-      answerTimeLimitInput.addEventListener("keypress", (e) => {
-        if (e.key === "Enter") {
-          this.saveTimeLimit();
-        }
-      });
-    }
-  }
 
   async loadData() {
     this.showLoading(true);
