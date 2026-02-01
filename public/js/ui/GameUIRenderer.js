@@ -90,20 +90,20 @@ export class GameUIRenderer {
   // Game state UI updates
   updateGameStateUI(gameStatus) {
     // Update start game button visibility
-    const startGameBtn = document.getElementById("startGameBtn");
-    if (startGameBtn) {
-      if (this.game.gameState === "waiting" || gameStatus === "menunggu") {
-        startGameBtn.style.display = "block";
-        startGameBtn.textContent = "⏳ Menunggu Admin...";
-        startGameBtn.disabled = true;
-      } else if (this.game.gameState === "running" || gameStatus === "mulai") {
-        startGameBtn.style.display = "none";
-      } else if (this.game.gameState === "ended" || gameStatus === "selesai") {
-        startGameBtn.style.display = "block";
-        startGameBtn.textContent = "🏁 Permainan Selesai";
-        startGameBtn.disabled = true;
-      }
-    }
+    // const startGameBtn = document.getElementById("startGameBtn");
+    // if (startGameBtn) {
+    //   if (this.game.gameState === "waiting" || gameStatus === "menunggu") {
+    //     startGameBtn.style.display = "block";
+    //     startGameBtn.textContent = "⏳ Menunggu Admin...";
+    //     startGameBtn.disabled = true;
+    //   } else if (this.game.gameState === "running" || gameStatus === "mulai") {
+    //     startGameBtn.style.display = "none";
+    //   } else if (this.game.gameState === "ended" || gameStatus === "selesai") {
+    //     startGameBtn.style.display = "block";
+    //     startGameBtn.textContent = "🏁 Permainan Selesai";
+    //     startGameBtn.disabled = true;
+    //   }
+    // }
 
     // Update next scenario button visibility
     // Next scenario button removed - controlled by admin only

@@ -100,68 +100,68 @@ class TunaAdventureGame {
           // Follow the same pattern as handleLogin() - simple and effective
           this.showScreen("game-screen");
           this.updateGameUI();
-          // Check game state before restoration
-          const gameStateBefore = localStorage.getItem("tuna_game_state");
-          this.logger.info("Game state before restoration", {
-            hasGameState: !!gameStateBefore,
-            gameState: gameStateBefore ? JSON.parse(gameStateBefore) : null
-          });
+    //       // Check game state before restoration
+    //       const gameStateBefore = localStorage.getItem("tuna_game_state");
+    //       this.logger.info("Game state before restoration", {
+    //         hasGameState: !!gameStateBefore,
+    //         gameState: gameStateBefore ? JSON.parse(gameStateBefore) : null
+    //       });
 
-          // Restore game state after basic setup (like handleLogin would do)
-          const gameStateRestored = await this.restoreGameState();
-          if (gameStateRestored) {
-            this.logger.info("Game state restored successfully");
-          }
+    //       // Restore game state after basic setup (like handleLogin would do)
+    //       const gameStateRestored = await this.restoreGameState();
+    //       if (gameStateRestored) {
+    //         this.logger.info("Game state restored successfully");
+    //       }
 
-          // Check game state after restoration
-          const gameStateAfter = localStorage.getItem("tuna_game_state");
-          this.logger.info("Game state after restoration", {
-            hasGameState: !!gameStateAfter,
-            gameState: gameStateAfter ? JSON.parse(gameStateAfter) : null
-          });
+    //       // Check game state after restoration
+    //       const gameStateAfter = localStorage.getItem("tuna_game_state");
+    //       this.logger.info("Game state after restoration", {
+    //         hasGameState: !!gameStateAfter,
+    //         gameState: gameStateAfter ? JSON.parse(gameStateAfter) : null
+    //       });
 
-          this.logger.info("Game screen shown, UI updated successfully");
+    //       this.logger.info("Game screen shown, UI updated successfully");
         } catch (error) {
-          this.logger.error("Token invalid or failed to load team data", {
-            error: error.message,
-            stack: error.stack,
-          });
-          this.token = null;
-          localStorage.removeItem("tuna_token");
-          clearTimeout(fallbackTimeout);
-          this.showScreen("login-screen");
-          this.showNotification(
-            "Sesi Anda telah berakhir. Silakan login kembali.",
-            "warning"
-          );
+    //       this.logger.error("Token invalid or failed to load team data", {
+    //         error: error.message,
+    //         stack: error.stack,
+    //       });
+    //       this.token = null;
+    //       localStorage.removeItem("tuna_token");
+    //       clearTimeout(fallbackTimeout);
+    //       this.showScreen("login-screen");
+    //       this.showNotification(
+    //         "Sesi Anda telah berakhir. Silakan login kembali.",
+    //         "warning"
+    //       );
         }
-      } else {
-        this.logger.info("No token found, showing login screen");
-        clearTimeout(fallbackTimeout);
-        this.showScreen("login-screen");
-      }
+    //   } else {
+    //     this.logger.info("No token found, showing login screen");
+    //     clearTimeout(fallbackTimeout);
+    //     this.showScreen("login-screen");
+    //   }
 
-      // Add debug method to global scope for testing
-      window.debugTuna = {
-        showWelcome: () => this.forceShowWelcomeContent(),
-        showAppropriate: () => this.showAppropriateContent(),
-        getState: () => ({
-          currentScreen: this.currentScreen,
-          gameState: this.gameState,
-          isGameStarted: this.isGameStarted,
-        }),
+    //   // Add debug method to global scope for testing
+    //   window.debugTuna = {
+    //     showWelcome: () => this.forceShowWelcomeContent(),
+    //     showAppropriate: () => this.showAppropriateContent(),
+    //     getState: () => ({
+    //       currentScreen: this.currentScreen,
+    //       gameState: this.gameState,
+    //       isGameStarted: this.isGameStarted,
+    //     }),
       };
     } catch (error) {
-      this.logger.error("Initialization failed", {
-        error: error.message,
-        stack: error.stack,
-      });
-      // Fallback: show login screen
-      this.showScreen("login-screen");
-      this.showNotification(
-        "Terjadi kesalahan saat memuat aplikasi. Silakan refresh halaman.",
-        "error"
-      );
+    //   this.logger.error("Initialization failed", {
+    //     error: error.message,
+    //     stack: error.stack,
+    //   });
+    //   // Fallback: show login screen
+    //   this.showScreen("login-screen");
+    //   this.showNotification(
+    //     "Terjadi kesalahan saat memuat aplikasi. Silakan refresh halaman.",
+    //     "error"
+    //   );
     }
   }
 
@@ -1534,7 +1534,7 @@ class TunaAdventureGame {
     this.hideSections([
       "leaderboard-content",
       "welcome-content",
-      "scenario-content",
+      // "scenario-content",
       "decision-content",
       "results-content"
     ]);
@@ -1564,14 +1564,13 @@ class TunaAdventureGame {
       this.updateScenarioUI();
       this.clearDecisionFormForNewScenario();
 
-      if (gameStatus.data.team.current_position <= 7) {
+      if (gameStatus.data.game.status === "mulai") {
         this.currentScreen = "scenario-content";
         document.getElementById("scenario-content").classList.add("active");
       } else {
         this.finishGame();
         return this.showAppropriateContent();
       }
-    console.log("etasd")
 
       this.saveGameState();
       this.showNotification(
