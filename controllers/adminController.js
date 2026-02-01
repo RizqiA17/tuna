@@ -255,6 +255,75 @@ class AdminController {
             });
         }
     }
+
+    // Get all containers
+    async getContainers(req, res) {
+        try {
+            const result = await gameManagementService.getAllContainers();
+            res.json(result);
+        } catch (error) {
+            console.error("Get containers error:", error);
+            res.status(500).json({
+                success: false,
+                message: "Internal server error",
+            });
+        }
+    }
+
+    // Create new container
+    async createContainer(req, res) {
+        try {
+            const { name } = req.body;
+            if (!name || name.trim() === "") {
+                return res.status(400).json({
+                    success: false,
+                    message: "Container name is required",
+                });
+            }
+            const result = await gameManagementService.createContainer(name.trim());
+            res.json(result);
+        } catch (error) {
+            console.error("Create container error:", error);
+            const statusCode = error.message.includes("exists") ? 409 : 500;
+            res.status(statusCode).json({
+                success: false,
+                message: error.message || "Internal server error",
+            });
+        }
+    }
+
+    // Update container
+    async updateContainer(req, res) {
+        try {
+            const { id } = req.params;
+            const updates = req.body;
+            const result = await gameManagementService.updateContainer(id, updates);
+            res.json(result);
+        } catch (error) {
+            console.error("Update container error:", error);
+            const statusCode = error.message.includes("not found") ? 404 : error.message.includes("Invalid") ? 400 : 500;
+            res.status(statusCode).json({
+                success: false,
+                message: error.message || "Internal server error",
+            });
+        }
+    }
+
+    // Delete container
+    async deleteContainer(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await gameManagementService.deleteContainer(id);
+            res.json(result);
+        } catch (error) {
+            console.error("Delete container error:", error);
+            const statusCode = error.message.includes("not found") ? 404 : error.message.includes("active") ? 409 : 500;
+            res.status(statusCode).json({
+                success: false,
+                message: error.message || "Internal server error",
+            });
+        }
+    }
 }
 
 module.exports = new AdminController();

@@ -160,5 +160,56 @@ export class AdminEventHandler {
         }
       });
     }
+
+    // Container management
+    const addContainerBtn = document.getElementById("addContainerBtn");
+    if (addContainerBtn) {
+      addContainerBtn.addEventListener("click", () => {
+        this.admin.showAddContainerModal();
+      });
+    }
+
+    const refreshContainersBtn = document.getElementById("refreshContainersBtn");
+    if (refreshContainersBtn) {
+      refreshContainersBtn.addEventListener("click", () => {
+        this.admin.loadContainers();
+      });
+    }
+
+    // Container form
+    const containerForm = document.getElementById("containerForm");
+    if (containerForm) {
+      containerForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        this.admin.saveContainer();
+      });
+    }
+
+    // Cancel container button
+    const cancelContainerBtn = document.getElementById("cancelContainerBtn");
+    if (cancelContainerBtn) {
+      cancelContainerBtn.addEventListener("click", () => {
+        this.admin.closeContainerModal();
+      });
+    }
+
+    // Modal close
+    document.querySelectorAll(".modal-close").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const modal = btn.closest(".modal");
+        if (modal.id === "containerModal") {
+          this.admin.closeContainerModal();
+        }
+      });
+    });
+
+    // Close modal when clicking outside
+    window.addEventListener("click", (e) => {
+      if (e.target.classList.contains("modal")) {
+        if (e.target.id === "containerModal") {
+          this.admin.closeContainerModal();
+        }
+      }
+    });
   }
 }

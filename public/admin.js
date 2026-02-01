@@ -23,6 +23,7 @@ class AdminPanel {
     this.teamsCompletedCurrentStep = new Set();
     this.currentStep = 0;
     this.gameSettings = {}; // Store game settings
+    this.containersData = []; // Store containers data
     this.logger = window.AdminLogger || new Logger("ADMIN");
     this.uiRenderer = new AdminUIRenderer(this);
     this.eventHandler = new AdminEventHandler(this);
@@ -1028,6 +1029,167 @@ class AdminPanel {
         saveBtn.innerHTML = '<i class="fas fa-save"></i> Simpan';
       }
     }
+  }
+
+  // Container management methods
+  async loadContainers() {
+    try {
+      const response = await this.apiService.request("/admin/containers");
+      if (response.success) {
+        this.containersData = response.data;
+        this.renderContainers();
+      } else {
+        throw new Error(response.message || "Failed to load containers");
+      }
+    } catch (error) {
+      console.error("Error loading containers:", error);
+      this.showNotification("Failed to load containers", "error");
+    }
+  }
+
+  renderContainers() {
+    const tbody = document.getElementById("containersTableBody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    if (this.containersData.length === 0) {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td colspan="7" style="text-align: center; padding: 2rem;">
+          <i class="fas fa-box-open"></i> No containers found
+        </td>
+      `;
+      tbody.appendChild(row);
+      return;
+    }
+
+    this.containersData.forEach(container => {
+      const row = document.createElement("tr");
+      const statusText = container.status === "menunggu" ? "Waiting" :
+                        container.status === "mulai" ? "Running" : "Ended";
+      const statusClass = container.status === "menunggu" ? "status-waiting" :
+                         container.status === "mulai" ? "status-running" : "status-ended";
+      const activeIcon = container.is_active ? '<i class="fas fa-check-circle" style="color: #28a745;"></i>' : '<i class="fas fa-times-circle" style="color: #dc3545;"></i>';
+
+      row.innerHTML = `
+        <td>${container.id}</td>
+        <td>${container.name}</td>
+        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+        <td>${activeIcon}</td>
+        <td>${container.posisi}</td>
+        <td>${formatDate(container.created_at)}</td>
+        <td>
+          <button class="btn btn-sm btn-primary edit-container" data-id="${container.id}">
+            <i class="fas fa-edit"></i> Edit
+          </button>
+          <button class="btn btn-sm btn-danger delete-container" data-id="${container.id}" ${container.is_active ? 'disabled' : ''}>
+            <i class="fas fa-trash"></i> Delete
+          </button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+
+    // Add event listeners
+    tbody.querySelectorAll(".edit-container").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const id = e.target.closest("button").dataset.id;
+        this.editContainer(id);
+      });
+    });
+
+    tbody.querySelectorAll(".delete-container").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const id = e.target.closest("button").dataset.id;
+        this.deleteContainer(id);
+      });
+    });
+  }
+
+  showAddContainerModal() {
+    document.getElementById("containerModalTitle").textContent = "Add Container";
+    document.getElementById("containerForm").reset();
+    document.getElementById("containerModal").style.display = "block";
+    this.editingContainerId = null;
+  }
+
+  editContainer(id) {
+    const container = this.containersData.find(c => c.id == id);
+    if (!container) return;
+
+    document.getElementById("containerModalTitle").textContent = "Edit Container";
+    document.getElementById("containerName").value = container.name;
+    document.getElementById("containerStatus").value = container.status;
+    document.getElementById("containerIsActive").checked = container.is_active;
+    document.getElementById("containerPosition").value = container.posisi;
+
+    document.getElementById("containerModal").style.display = "block";
+    this.editingContainerId = id;
+  }
+
+  async saveContainer() {
+    const form = document.getElementById("containerForm");
+    const formData = new FormData(form);
+    const data = {
+      name: formData.get("name"),
+      status: formData.get("status"),
+      is_active: formData.get("is_active") === "on",
+      posisi: parseInt(formData.get("posisi")) || 0
+    };
+
+    try {
+      let response;
+      if (this.editingContainerId) {
+        response = await this.apiService.request(`/admin/containers/${this.editingContainerId}`, {
+          method: "PUT",
+          body: JSON.stringify(data)
+        });
+      } else {
+        response = await this.apiService.request("/admin/containers", {
+          method: "POST",
+          body: JSON.stringify(data)
+        });
+      }
+
+      if (response.success) {
+        this.showNotification(`Container ${this.editingContainerId ? 'updated' : 'created'} successfully`, "success");
+        this.loadContainers();
+        this.closeContainerModal();
+      } else {
+        throw new Error(response.message || "Failed to save container");
+      }
+    } catch (error) {
+      console.error("Error saving container:", error);
+      this.showNotification(`Failed to save container: ${error.message}`, "error");
+    }
+  }
+
+  async deleteContainer(id) {
+    if (!confirm("Are you sure you want to delete this container? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      const response = await this.apiService.request(`/admin/containers/${id}`, {
+        method: "DELETE"
+      });
+
+      if (response.success) {
+        this.showNotification("Container deleted successfully", "success");
+        this.loadContainers();
+      } else {
+        throw new Error(response.message || "Failed to delete container");
+      }
+    } catch (error) {
+      console.error("Error deleting container:", error);
+      this.showNotification(`Failed to delete container: ${error.message}`, "error");
+    }
+  }
+
+  closeContainerModal() {
+    document.getElementById("containerModal").style.display = "none";
+    this.editingContainerId = null;
   }
 }
 

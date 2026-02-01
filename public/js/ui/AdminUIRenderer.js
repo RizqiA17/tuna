@@ -320,6 +320,11 @@ export class AdminUIRenderer {
         this.admin.saveAdminState();
 
         // Load section-specific data
+        if (sectionName === "containers") {
+            this.admin.loadContainers();
+        }
+
+        // Load section-specific data
         if (sectionName === "game-control") {
             // Update real-time monitoring when switching to game control
             this.updateRealTimeMonitoring();

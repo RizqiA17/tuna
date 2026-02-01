@@ -65,4 +65,10 @@ router.get("/game-settings", adminRateLimit, adminController.getGameSettings);
 // Update game settings
 router.put("/game-settings", adminRateLimit, adminController.updateGameSettings);
 
+// Container management
+router.get("/containers", adminRateLimit, adminController.getContainers);
+router.post("/containers", adminRateLimit, adminController.createContainer);
+router.put("/containers/:id", adminRateLimit, adminController.updateContainer);
+router.delete("/containers/:id", adminRateLimit, adminController.deleteContainer);
+
 module.exports = router;

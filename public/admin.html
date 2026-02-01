@@ -85,6 +85,9 @@
                 <button class="nav-btn" data-section="leaderboard">
                     <i class="fas fa-trophy"></i> Leaderboard
                 </button>
+                <button class="nav-btn" data-section="containers">
+                    <i class="fas fa-box"></i> Containers
+                </button>
                 <button class="nav-btn" data-section="analytics" style="display: none;">
                     <i class="fas fa-chart-line"></i> Analytics
                 </button>
@@ -459,6 +462,42 @@
                     </div>
                 </div>
 
+                <!-- Containers Section -->
+                <div id="containers-section" class="admin-section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-box"></i> Container Management</h2>
+                        <p>Manage game containers and sessions</p>
+                    </div>
+
+                    <div class="containers-actions">
+                        <button id="addContainerBtn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Add New Container
+                        </button>
+                        <button id="refreshContainersBtn" class="btn btn-secondary">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+
+                    <div class="containers-table-container">
+                        <table class="containers-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                    <th>Active</th>
+                                    <th>Position</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="containersTableBody">
+                                <!-- Containers will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- Analytics Section -->
                 <div id="analytics-section" class="admin-section" style="display: none;">
                     <div class="section-header">
@@ -511,6 +550,47 @@
                     <div id="scenarioDecisionsContent">
                         <!-- Scenario decisions will be populated here -->
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Container Modal -->
+        <div id="containerModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="containerModalTitle">Add Container</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="containerForm">
+                        <div class="form-group">
+                            <label for="containerName">Name</label>
+                            <input type="text" id="containerName" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="containerStatus">Status</label>
+                            <select id="containerStatus" name="status">
+                                <option value="menunggu">Waiting</option>
+                                <option value="mulai">Running</option>
+                                <option value="selesai">Ended</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="containerIsActive" name="is_active">
+                                Active Container
+                            </label>
+                            <small class="form-hint">Only one container can be active at a time. Activating this will deactivate others.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="containerPosition">Position</label>
+                            <input type="number" id="containerPosition" name="posisi" min="0" max="7" value="0">
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" id="cancelContainerBtn">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>

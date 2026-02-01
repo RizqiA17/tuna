@@ -2601,3 +2601,142 @@ body
         width: 100%;
     }
 }
+
+/* Container Management Styles */
+.containers-actions {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    justify-content: flex-start;
+}
+
+.containers-table-container {
+    overflow-x: auto;
+    background: var(--admin-card-bg);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px var(--admin-shadow-color);
+}
+
+.containers-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.containers-table th,
+.containers-table td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--admin-border-color);
+}
+
+.containers-table th {
+    background: var(--admin-bg-secondary);
+    font-weight: 600;
+    color: var(--admin-text-primary);
+}
+
+.containers-table tbody tr:hover {
+    background: var(--admin-bg-tertiary);
+}
+
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.status-waiting {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-running {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.status-ended {
+    background: #d4edda;
+    color: #155724;
+}
+
+[data-theme="dark"] .status-waiting {
+    background: rgba(255, 243, 205, 0.2);
+    color: #ffd700;
+}
+
+[data-theme="dark"] .status-running {
+    background: rgba(209, 236, 241, 0.2);
+    color: #17a2b8;
+}
+
+[data-theme="dark"] .status-ended {
+    background: rgba(212, 237, 218, 0.2);
+    color: #28a745;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Container Modal */
+#containerModal .modal-content {
+    max-width: 500px;
+}
+
+#containerModal .form-group {
+    margin-bottom: 1rem;
+}
+
+#containerModal label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--admin-text-primary);
+}
+
+#containerModal input[type="text"],
+#containerModal input[type="number"],
+#containerModal select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--admin-border-color);
+    border-radius: 4px;
+    background: var(--admin-input-bg);
+    color: var(--admin-text-primary);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+}
+
+/* Responsive for Containers */
+@media (max-width: 768px) {
+    .containers-actions {
+        flex-direction: column;
+    }
+
+    .containers-table th,
+    .containers-table td {
+        padding: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .containers-table td:last-child {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+}
