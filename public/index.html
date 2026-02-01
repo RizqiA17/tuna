@@ -41,14 +41,14 @@
 
           <div class="auth-tabs">
             <button class="tab-button active" data-tab="login">Masuk</button>
-            <button class="tab-button" data-tab="register">Daftar Tim</button>
+            <button class="tab-button" data-tab="register">Daftar</button>
           </div>
 
           <!-- Login Form -->
           <div id="login-form" class="auth-form active">
             <form id="loginForm">
               <div class="form-group">
-                <label for="loginTeamName">Nama Tim</label>
+                <label for="loginTeamName">Nama</label>
                 <input
                   type="text"
                   id="loginTeamName"
@@ -75,7 +75,7 @@
           <div id="register-form" class="auth-form">
             <form id="registerForm">
               <div class="form-group">
-                <label for="registerTeamName">Nama Tim</label>
+                <label for="registerTeamName">Nama</label>
                 <input
                   type="text"
                   id="registerTeamName"
@@ -101,7 +101,7 @@
                   required
                 />
               </div>
-              <div class="form-group">
+              <div class="form-group" style="display: none;">
                 <label>Anggota Tim (1-5 orang)</label>
                 <div id="players-list">
                   <div class="player-input">
@@ -109,7 +109,6 @@
                       type="text"
                       name="players[0].name"
                       placeholder="Nama Anggota 1 (Leader)"
-                      required
                     />
                     <span class="player-role">👑 Leader</span>
                   </div>
@@ -119,7 +118,7 @@
                 </button>
               </div>
               <button type="submit" class="btn btn-primary">
-                <i class="fas fa-users"></i> Daftar Tim
+                <i class="fas fa-users"></i> Daftar
               </button>
             </form>
           </div>
@@ -175,8 +174,11 @@
                 <div class="welcome-icon">🏔️</div>
                 <h3>Selamat Datang di Petualangan Puncak TUNA!</h3>
                 <p>
-                  Tim Anda akan menghadapi 7 tantangan yang semakin kompleks.
+                  Anda akan menghadapi 7 tantangan yang semakin kompleks.
                   Setiap tantangan akan menguji kemampuan Anda dalam menghadapi:
+                </p>
+                <p style="color: red">
+                  1 Device hanya bisa mengisi 1x
                 </p>
                 <div class="tuna-elements">
                   <div class="element">
@@ -224,7 +226,7 @@
             <div id="decision-content" class="content-section">
               <div class="decision-card">
                 <div class="decision-header">
-                  <h3>Keputusan Tim Anda</h3>
+                  <h3>Keputusan Anda</h3>
                   <div class="time-limit" style="display: none;">
                     <i class="fas fa-clock"></i>
                     <span id="timeRemaining">15:00</span>
@@ -237,7 +239,7 @@
                       id="decision"
                       name="decision"
                       rows="4"
-                      placeholder="Tuliskan keputusan tim Anda dengan jelas dan spesifik..."
+                      placeholder="Tuliskan keputusan Anda dengan jelas dan spesifik..."
                       required
                     ></textarea>
                     <div class="char-count">
@@ -250,7 +252,7 @@
                       id="reasoning"
                       name="reasoning"
                       rows="6"
-                      placeholder="Jelaskan mengapa tim Anda memilih keputusan tersebut. Bagaimana tim menganalisis situasi? Apa pertimbangan yang mendasari keputusan ini?"
+                      placeholder="Jelaskan mengapa Anda memilih keputusan tersebut. Bagaimana menganalisis situasi? Apa pertimbangan yang mendasari keputusan ini?"
                       required
                     ></textarea>
                     <div class="char-count">
@@ -286,9 +288,9 @@
                 </div>
                 <div class="results-content">
                   <div class="team-answer">
-                    <h4>Keputusan Tim Anda:</h4>
+                    <h4>Keputusan Anda:</h4>
                     <div id="teamDecision" class="answer-text"></div>
-                    <h4>Argumentasi Tim:</h4>
+                    <h4>Argumentasi:</h4>
                     <div id="teamReasoning" class="answer-text"></div>
                   </div>
                   <div class="standard-answer">
@@ -318,7 +320,7 @@
                 <div class="complete-icon">🏆</div>
                 <h3>Selamat! Petualangan Selesai!</h3>
                 <p>
-                  Tim Anda telah berhasil menyelesaikan semua tantangan di
+                  Anda telah berhasil menyelesaikan semua tantangan di
                   Petualangan Puncak TUNA.
                 </p>
                 <div class="final-stats">
@@ -346,7 +348,7 @@
             <div id="leaderboard-content" class="content-section">
               <div class="leaderboard-card">
                 <div class="leaderboard-header">
-                  <h3><i class="fas fa-trophy"></i> Peringkat Tim</h3>
+                  <h3><i class="fas fa-trophy"></i> Peringkat</h3>
                   <button id="closeLeaderboardBtn" class="btn btn-outline">
                     <i class="fas fa-times"></i> Tutup
                   </button>

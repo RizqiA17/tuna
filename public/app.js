@@ -422,17 +422,18 @@ class TunaAdventureGame {
 
     // Collect players
     const players = [];
-    for (let i = 0; i < this.playerCount; i++) {
-      const playerName = formData.get(`players[${i}].name`);
-      if (playerName) {
-        players.push({ name: playerName });
-      }
-    }
+    players.push({ name: formData.get("teamName") })
+    // for (let i = 0; i < this.playerCount; i++) {
+    //   const playerName = formData.get(`players[${i}].name`);
+    //   if (playerName) {
+    //     players.push({ name: playerName });
+    //   }
+    // }
 
-    if (players.length === 0) {
-      this.showNotification("Minimal 1 anggota tim!", "error");
-      return;
-    }
+    // if (players.length === 0) {
+    //   this.showNotification("Minimal 1 anggota tim!", "error");
+    //   return;
+    // }
 
     const data = {
       teamName: formData.get("teamName"),
@@ -448,6 +449,7 @@ class TunaAdventureGame {
 
       this.token = response.data.token;
       localStorage.setItem("tuna_token", this.token);
+      this.apiService.setToken(this.token);
 
       this.teamData = response.data;
 
@@ -488,6 +490,83 @@ class TunaAdventureGame {
       this.showNotification(error.message, "error");
     }
   }
+  // async handleRegister() {
+  //   const formData = new FormData(document.getElementById("registerForm"));
+
+  //   // Validate password confirmation
+  //   if (formData.get("password") !== formData.get("confirmPassword")) {
+  //     this.showNotification("Kata sandi tidak cocok!", "error");
+  //     return;
+  //   }
+
+  //   // Collect players
+  //   const players = [];
+  //   for (let i = 0; i < this.playerCount; i++) {
+  //     const playerName = formData.get(`players[${i}].name`);
+  //     if (playerName) {
+  //       players.push({ name: playerName });
+  //     }
+  //   }
+
+  //   if (players.length === 0) {
+  //     this.showNotification("Minimal 1 anggota tim!", "error");
+  //     return;
+  //   }
+
+  //   const data = {
+  //     teamName: formData.get("teamName"),
+  //     password: formData.get("password"),
+  //     players,
+  //   };
+
+  //   try {
+  //     const response = await this.apiService.request("/auth/register", {
+  //       method: "POST",
+  //       body: JSON.stringify(data),
+  //     });
+
+  //     this.token = response.data.token;
+  //     localStorage.setItem("tuna_token", this.token);
+
+  //     this.teamData = response.data;
+
+  //     // Join WebSocket as team
+  //     if (this.wsService && this.wsService.connected) {
+  //       const teamId = this.teamData.teamId || this.teamData.id;
+  //       if (teamId) {
+  //         this.wsService.emit("team-join", {
+  //           teamId: teamId,
+  //           teamName: this.teamData.teamName,
+  //         });
+  //         this.logger.websocket(
+  //           "team-join",
+  //           {
+  //             teamId: teamId,
+  //             teamName: this.teamData.teamName,
+  //           },
+  //           "OUT"
+  //         );
+  //       } else {
+  //         this.logger.error("No teamId available in handleRegister", {
+  //           teamData: this.teamData,
+  //         });
+  //       }
+  //     }
+
+
+  //     // Explicitly hide login screen and show game screen
+  //     this.hideLoginScreen();
+  //     this.showScreen("game-screen");
+  //     this.updateGameUI();
+  //     this.updateGameStateUI(this.teamData.gameStatus);
+  //     this.showNotification(
+  //       "Tim berhasil didaftarkan! Selamat datang di Petualangan Puncak TUNA!",
+  //       "success"
+  //     );
+  //   } catch (error) {
+  //     this.showNotification(error.message, "error");
+  //   }
+  // }
 
   async loadTeamData() {
     const response = await this.apiService.request("/auth/me");
@@ -2855,7 +2934,7 @@ class TunaAdventureGame {
     const playersList = document.getElementById("players-list");
     playersList.innerHTML = `
             <div class="player-input">
-                <input type="text" name="players[0].name" placeholder="Nama Anggota 1 (Leader)" required>
+                <input type="text" name="players[0].name" placeholder="Nama Anggota 1 (Leader)">
                 <span class="player-role">👑 Leader</span>
             </div>
         `;
