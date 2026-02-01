@@ -26,6 +26,8 @@ class TunaAdventureGame {
 
     this.currentScreen = "login-screen";
 
+    // console.trace("currentScreen", this.currentScreen);
+
     // Browser event handling properties
     this.isSavingState = false; // Flag to prevent multiple simultaneous saves
     this.lastSaveTime = 0; // Track last save time for debouncing
@@ -99,7 +101,7 @@ class TunaAdventureGame {
 
           // Follow the same pattern as handleLogin() - simple and effective
           this.showScreen("game-screen");
-          this.updateGameUI();
+          // this.updateGameUI();
           // Check game state before restoration
           const gameStateBefore = localStorage.getItem("tuna_game_state");
           this.logger.info("Game state before restoration", {
@@ -109,6 +111,7 @@ class TunaAdventureGame {
 
           // Restore game state after basic setup (like handleLogin would do)
           const gameStateRestored = await this.restoreGameState();
+          // console.log(JSON.parse(gameStateBefore));
           if (gameStateRestored) {
             this.logger.info("Game state restored successfully");
           }
@@ -119,13 +122,60 @@ class TunaAdventureGame {
             hasGameState: !!gameStateAfter,
             gameState: gameStateAfter ? JSON.parse(gameStateAfter) : null
           });
+          // console.log(JSON.parse(gameStateAfter).currentScreen);
 
+          this.hideSections([
+            "leaderboard-content",
+            "welcome-content",
+            "scenario-content",
+            "decision-content",
+            "results-content"
+          ]);
+
+          const asd = JSON.parse(localStorage.getItem("tuna_game_state"));
+
+          this.currentScreen = asd?.currentScreen || "welcome-content";
+
+          // console.trace("currentScreen", this.currentScreen);
+          document.getElementById(this.currentScreen).classList.add("active");
+
+          if (this.currentScreen === "scenario-content") {
+            this.updateScenarioUI()
+          } else if (this.currentScreen === "results-content") {
+            this.showResults({
+              score: asd.resultsData.score,
+              teamDecision: asd.resultsData.teamDecision,
+              teamArgumentation: asd.resultsData.teamReasoning,
+              standardAnswer: asd.resultsData.standardDecision,
+              standardArgumentation: asd.resultsData.standardReasoning,
+            });
+          } else if (this.currentScenario === "leaderboard-content") {
+            this.showLeaderboard()
+          }
+
+          if (asd !== null) {
+            this.teamData = asd.teamData || null
+            this.currentScenario = asd.currentScenario
+            this.gameState = asd.gameState || 'waiting'
+            // console.trace("gameState", this.gameState);
+            this.currentScreen = asd.currentScreen || "login-screen"
+
+            // console.trace("currentScreen", this.currentScreen);
+            this.isGameStarted = asd.isGameStarted || false
+            // console.trace("isGameStarted", this.isGameStarted);
+            this.currentScenarioPosition = asd.currentScenarioPosition || 0
+            this.resultsData = asd.resultsData || null
+
+            localStorage.setItem(STORAGE_KEYS.GAME_STATE, JSON.stringify(asd));
+          }
+          this.updateGameUI();
           this.logger.info("Game screen shown, UI updated successfully");
         } catch (error) {
           this.logger.error("Token invalid or failed to load team data", {
             error: error.message,
             stack: error.stack,
           });
+          // console.error(error)
           this.token = null;
           localStorage.removeItem("tuna_token");
           clearTimeout(fallbackTimeout);
@@ -172,6 +222,8 @@ class TunaAdventureGame {
 
     // Update current screen state
     this.currentScreen = screenId;
+
+    // console.trace("currentScreen", this.currentScreen);
 
     // Remove active class from all screens and reset display style
     document.querySelectorAll(".screen").forEach((screen) => {
@@ -304,6 +356,8 @@ class TunaAdventureGame {
 
       if (status.data.completeCurrentStep) {
         this.currentScreen = 'complete-content';
+
+        // console.trace("currentScreen", this.currentScreen);
       }
 
       // Explicitly hide login screen and show game screen
@@ -319,6 +373,30 @@ class TunaAdventureGame {
       } else {
         this.logger.info("No game state to restore after login");
       }
+
+      const asd = JSON.parse(localStorage.getItem("tuna_game_state"));
+
+      this.currentScreen = asd?.currentScreen || "welcome-content";
+
+      // console.trace("currentScreen", this.currentScreen);
+      document.getElementById(this.currentScreen).classList.add("active");
+
+      if (asd !== null) {
+        this.teamData = asd.teamData || null
+        this.currentScenario = asd.currentScenario
+        this.gameState = asd.gameState || 'waiting'
+        // console.trace("gameState", this.gameState);
+        this.currentScreen = asd.currentScreen || "login-screen"
+
+        // console.trace("currentScreen", this.currentScreen);
+        this.isGameStarted = asd.isGameStarted || false
+        // console.trace("isGameStarted", this.isGameStarted);
+        this.currentScenarioPosition = asd.currentScenarioPosition || 0
+        this.resultsData = asd.resultsData || null
+
+        localStorage.setItem(STORAGE_KEYS.GAME_STATE, JSON.stringify(asd));
+      }
+      this.updateGameUI();
 
       this.showNotification(
         "Login berhasil! Selamat datang kembali.",
@@ -470,7 +548,7 @@ class TunaAdventureGame {
     try {
       // Save game state if we have meaningful data
       if (this.teamData && this.currentScreen && this.currentScreen !== "login-screen") {
-        this.saveGameState();
+        // this.saveGameState();
         this.logger.info("Game state saved on unload", {
           currentScreen: this.currentScreen,
           gameState: this.gameState,
@@ -513,8 +591,8 @@ class TunaAdventureGame {
 
     try {
       if (this.teamData && this.currentScreen && this.currentScreen !== "login-screen") {
-        this.saveGameState();
-        this.logger.debug("State saved via debounced save");
+        // this.saveGameState();
+        // this.logger.debug("State saved via debounced save");
       }
     } catch (error) {
       this.logger.error("Error in debounced save", { error: error.message });
@@ -620,6 +698,8 @@ class TunaAdventureGame {
           });
 
           this.currentScreen = gameState.currentScreen;
+
+          // console.trace("currentScreen", this.currentScreen);
           this.gameState = gameState.gameState;
           this.currentScenario = gameState.currentScenario;
           this.teamData = gameState.teamData;
@@ -696,6 +776,7 @@ class TunaAdventureGame {
 
     switch (operation.type) {
       case 'save_game_state':
+        // console.trace("Game state to save:", gameState);
         localStorage.setItem('tuna_game_state', JSON.stringify(operation.data));
         break;
       case 'save_timer_state':
@@ -827,6 +908,7 @@ class TunaAdventureGame {
       tabId: this.tabId,
       timestamp: Date.now()
     };
+    // console.trace("Game state to save:", gameState);
 
     // Validate state before saving
     const validation = this.validateGameState(gameState);
@@ -838,6 +920,7 @@ class TunaAdventureGame {
     }
 
     try {
+      // console.trace("Game state to save:", gameState);
       localStorage.setItem("tuna_game_state", JSON.stringify(gameState));
 
       // Verify the save worked
@@ -1048,43 +1131,43 @@ class TunaAdventureGame {
 
     // Listen for game state updates from server
     this.wsService.on("game-state-update", (data) => {
-      const oldGameState = this.gameState;
-      const oldStep = this.currentScenarioPosition;
+      // const oldGameState = this.gameState;
+      // const oldStep = this.currentScenarioPosition;
 
-      this.gameState = data.gameState || "waiting";
-      this.currentScenarioPosition = data.currentStep || 0;
+      // this.gameState = data.gameState || "waiting";
+      // this.currentScenarioPosition = data.currentStep || 0;
 
-      // IMPORTANT: Update flags based on server state for better synchronization
-      this.isGameStarted = data.isGameRunning || false;
-      // this.isWaitingForAdmin = data.isWaiting || false;
+      // // IMPORTANT: Update flags based on server state for better synchronization
+      // // this.isGameStarted = data.isGameRunning || false;
+      // // this.isWaitingForAdmin = data.isWaiting || false;
 
-      // Update UI based on server state
-      this.updateGameStateUI();
+      // // Update UI based on server state
+      // this.updateGameStateUI();
 
-      // IMPORTANT: If step changed, we need to sync with server state
-      if (oldStep !== this.currentScenarioPosition && this.teamData) {
-        this.syncWithServerState();
-      } else {
-        this.showAppropriateContent();
-      }
+      // // IMPORTANT: If step changed, we need to sync with server state
+      // if (oldStep !== this.currentScenarioPosition && this.teamData) {
+      //   this.syncWithServerState();
+      // } else {
+      //   // this.showAppropriateContent();
+      // }
 
-      // Show notification if game state was reset (server restart)
-      if (oldGameState !== this.gameState && this.gameState === "waiting") {
-        this.showNotification(
-          "Server restarted - Game state reset to waiting",
-          "info"
-        );
-        this.clearGameState();
-      }
+      // // Show notification if game state was reset (server restart)
+      // // if (oldGameState !== this.gameState && this.gameState === "waiting") {
+      // //   this.showNotification(
+      // //     "Server restarted - Game state reset to waiting",
+      // //     "info"
+      // //   );
+      // //   this.clearGameState();
+      // // }
 
-      // Log enhanced synchronization info
-      this.logger.info("Game state synchronized with server", {
-        gameState: this.gameState,
-        currentStep: this.currentScenarioPosition,
-        isGameStarted: this.isGameStarted,
-        isWaitingForAdmin: this.isWaitingForAdmin,
-        timestamp: data.timestamp,
-      });
+      // // Log enhanced synchronization info
+      // this.logger.info("Game state synchronized with server", {
+      //   gameState: this.gameState,
+      //   currentStep: this.currentScenarioPosition,
+      //   isGameStarted: this.isGameStarted,
+      //   isWaitingForAdmin: this.isWaitingForAdmin,
+      //   timestamp: data.timestamp,
+      // });
     });
   }
 
@@ -1121,6 +1204,8 @@ class TunaAdventureGame {
           document.getElementById("scenario-content").classList.add("active");
           this.currentScreen = "scenario-content";
 
+          // console.trace("currentScreen", this.currentScreen);
+
           this.showNotification(
             `Lanjutkan ke Pos ${this.teamData.currentPosition}: ${this.currentScenario.title}`,
             "success"
@@ -1138,6 +1223,7 @@ class TunaAdventureGame {
         this.currentScenario = response.scenario;
         this.currentScenarioPosition = response.scenario.position || 0;
         this.isGameStarted = true;
+        // console.trace("isGameStarted", this.isGameStarted);
         this.gameState = "running";
         this.updateScenarioUI();
         // Clear form fields for new scenario
@@ -1147,6 +1233,8 @@ class TunaAdventureGame {
         document.getElementById("welcome-content").classList.remove("active");
         document.getElementById("scenario-content").classList.add("active");
         this.currentScreen = "scenario-content";
+
+        // console.trace("currentScreen", this.currentScreen);
         this.updateGameStateUI();
         this.updateGameUI();
         this.saveGameState();
@@ -1171,9 +1259,12 @@ class TunaAdventureGame {
 
     // Reset all game state
     this.isGameStarted = false;
+    // console.trace("isGameStarted", this.isGameStarted);
     this.isWaitingForAdmin = false;
     this.gameState = "waiting";
     this.currentScreen = "welcome-content";
+
+    // console.trace("currentScreen", this.currentScreen);
     this.currentScenarioPosition = 0;
     this.currentScenario = null;
 
@@ -1213,11 +1304,12 @@ class TunaAdventureGame {
     // Update next scenario button visibility
     const nextScenarioBtn = document.getElementById("nextScenarioBtn");
     if (nextScenarioBtn) {
-      if (this.gameState === "running") {
-        nextScenarioBtn.style.display = "block";
-      } else {
+      if (this.gameState === "ended") {
         nextScenarioBtn.style.display = "none";
+      } else {
+        nextScenarioBtn.style.display = "block";
       }
+      // console.trace("nextScenarioBtn", this.gameState);
     }
   }
 
@@ -1236,6 +1328,7 @@ class TunaAdventureGame {
           return;
         }
       } else {
+        // console.trace("tes");
         this.showNotification(
           "Tidak ada scenario aktif. Silakan refresh halaman atau hubungi admin.",
           "error"
@@ -1253,6 +1346,8 @@ class TunaAdventureGame {
 
     // Update current screen state
     this.currentScreen = "decision-content";
+
+    // console.trace("currentScreen", this.currentScreen);
     this.saveGameState();
 
     // No timer functionality - game is self-paced
@@ -1268,6 +1363,7 @@ class TunaAdventureGame {
 
         // Check again after loading
         if (!this.currentScenario) {
+          // console.trace("tes");
           this.showNotification(
             "Tidak ada scenario aktif. Silakan refresh halaman atau hubungi admin.",
             "error"
@@ -1275,6 +1371,7 @@ class TunaAdventureGame {
           return;
         }
       } else {
+        // console.trace("tes");
         this.showNotification(
           "Tidak ada scenario aktif. Silakan refresh halaman atau hubungi admin.",
           "error"
@@ -1335,6 +1432,8 @@ class TunaAdventureGame {
 
         // Update current screen state
         this.currentScreen = "results-content";
+
+        // console.trace("currentScreen", this.currentScreen);
         this.saveGameState();
 
         // Show results
@@ -1380,6 +1479,8 @@ class TunaAdventureGame {
 
       this.updateGameStateUI();
       this.currentScreen = "results-content";
+
+      // console.trace("currentScreen", this.currentScreen);
       this.saveGameState();
 
       await this.showResults(response.result);
@@ -1488,8 +1589,9 @@ class TunaAdventureGame {
 
 
   async showResults(result) {
+    // console.log(result)
     // Update UI with results
-    document.getElementById("scenarioScore").textContent = result.score;
+    document.getElementById("scenarioScore").textContent = result.score || 0;
 
     // Show team's decision
     document.getElementById("teamDecision").textContent = result.teamDecision;
@@ -1521,6 +1623,8 @@ class TunaAdventureGame {
 
     // Update current screen state
     this.currentScreen = "results-content";
+
+    // console.trace("currentScreen", this.currentScreen);
     this.saveGameState();
 
     this.updateGameUI();
@@ -1539,9 +1643,10 @@ class TunaAdventureGame {
       "results-content"
     ]);
 
+    // console.log(this.teamData)
     if (this.teamData.currentPosition > 7) {
       this.finishGame();
-      return this.showAppropriateContent();
+      return this.showAppropriateContent("complete-content");
     }
 
     const status = await this.apiService.request("/game/status");
@@ -1550,6 +1655,7 @@ class TunaAdventureGame {
     }
 
     try {
+
       const gameStatus = await this.apiService.request("/game/status");
       const nextScenario = this.getScenarioByPosition(
         this.teamData.currentPosition
@@ -1563,15 +1669,15 @@ class TunaAdventureGame {
       this.currentScenario = nextScenario;
       this.updateScenarioUI();
       this.clearDecisionFormForNewScenario();
-
-      if (gameStatus.data.team.current_position <= 7) {
+      if (this.teamData.currentPosition <= 7) {
         this.currentScreen = "scenario-content";
+
+        // console.trace("currentScreen", this.currentScreen);
         document.getElementById("scenario-content").classList.add("active");
       } else {
         this.finishGame();
         return this.showAppropriateContent();
       }
-    console.log("etasd")
 
       this.saveGameState();
       this.showNotification(
@@ -1600,6 +1706,8 @@ class TunaAdventureGame {
   finishGame() {
     document.getElementById("complete-content").classList.add("active");
     this.currentScreen = "complete-content";
+
+    // console.trace("currentScreen", this.currentScreen);
     this.saveGameState();
     this.updateCompleteUI();
   }
@@ -1632,6 +1740,7 @@ class TunaAdventureGame {
     try {
       const response = await this.apiService.request("/game/leaderboard");
       this.updateLeaderboardUI(response.data);
+      // console.log(':Tes')
 
       // Hide current content and show leaderboard
       document.querySelectorAll(".content-section").forEach((section) => {
@@ -1641,7 +1750,9 @@ class TunaAdventureGame {
 
       // Update current screen state and save
       this.currentScreen = "leaderboard-content";
-      this.saveGameState();
+
+      // console.trace("currentScreen", this.currentScreen);
+      // this.saveGameState();
 
     } catch (error) {
       this.showNotification(error.message, "error");
@@ -1655,6 +1766,8 @@ class TunaAdventureGame {
     if (this.teamData.currentPosition > 7) {
       document.getElementById("complete-content").classList.add("active");
       this.currentScreen = "complete-content";
+
+      // console.trace("currentScreen", this.currentScreen);
     } else {
       document.getElementById("results-content").classList.add("active");
 
@@ -1681,7 +1794,7 @@ class TunaAdventureGame {
   logout() {
     // Save current game state BEFORE clearing any data
     if (this.currentScreen && this.currentScreen !== "login-screen") {
-      this.saveGameState();
+      // this.saveGameState();
       this.logger.info("Game state saved before logout", {
         currentScreen: this.currentScreen,
         gameState: this.gameState,
@@ -1727,10 +1840,6 @@ class TunaAdventureGame {
     if (!this.teamData) return;
 
     try {
-      const team = await this.apiService.request(`/game/status`);
-
-      const teamData = team.data
-
 
       document.getElementById("teamName").textContent = this.teamData.teamName;
       document.getElementById("currentPosition").textContent =
@@ -1739,7 +1848,7 @@ class TunaAdventureGame {
         this.teamData.totalScore;
 
       // Update progress bar
-      const progress = ((teamData.team.current_position) / 7) * 100;
+      const progress = ((this.teamData.currentPosition) / 7) * 100;
       document.getElementById("progressBar").style.width = progress < 0 ? 0 : `${progress}%`;
 
       // Update progress labels
@@ -1747,7 +1856,7 @@ class TunaAdventureGame {
         .querySelectorAll(".progress-labels .label")
         .forEach((label, index) => {
           label.classList.remove("active");
-          if (index < teamData.team.current_position) {
+          if (index < this.teamData.currentPosition) {
             label.classList.add("active");
           }
         });
@@ -1755,6 +1864,38 @@ class TunaAdventureGame {
     catch (error) {
     }
   }
+  // async updateGameUI() {
+  //   if (!this.teamData) return;
+
+  //   try {
+  //     const team = await this.apiService.request(`/game/status`);
+
+  //     const teamData = team.data
+
+
+  //     document.getElementById("teamName").textContent = this.teamData.teamName;
+  //     document.getElementById("currentPosition").textContent =
+  //       this.teamData.currentPosition;
+  //     document.getElementById("totalScore").textContent =
+  //       this.teamData.totalScore;
+
+  //     // Update progress bar
+  //     const progress = ((teamData.team.current_position) / 7) * 100;
+  //     document.getElementById("progressBar").style.width = progress < 0 ? 0 : `${progress}%`;
+
+  //     // Update progress labels
+  //     document
+  //       .querySelectorAll(".progress-labels .label")
+  //       .forEach((label, index) => {
+  //         label.classList.remove("active");
+  //         if (index < teamData.team.current_position) {
+  //           label.classList.add("active");
+  //         }
+  //       });
+  //   }
+  //   catch (error) {
+  //   }
+  // }
 
   updateScenarioUI() {
     if (!this.currentScenario) {
@@ -1788,12 +1929,14 @@ class TunaAdventureGame {
         this.currentScenarioPosition = this.teamData.currentPosition;
         this.gameState = "running";
         this.isGameStarted = true;
+        // console.trace("isGameStarted", this.isGameStarted);
         this.isWaitingForAdmin = false;
 
         const isGameInProgress = await this.apiService.request("/game/game-status");
 
         if (isGameInProgress.data.status === "selesai") {
           this.gameState = "ended";
+          // console.trace("gameState", this.gameState);
           this.currentScreen = "complete-content";
           this.updateGameStateUI();
           this.showAppropriateContent();
@@ -1801,6 +1944,7 @@ class TunaAdventureGame {
         } else if (isGameInProgress.data.status === "menunggu") {
           this.gameState = "waiting";
           this.isGameStarted = false;
+          // console.trace("isGameStarted", this.isGameStarted);
           // this.isWaitingForAdmin = true;
           this.updateGameStateUI();
           this.showAppropriateContent();
@@ -1814,6 +1958,7 @@ class TunaAdventureGame {
 
         if (shouldChangeScreen) {
           this.currentScreen = "scenario-content";
+          // console.trace("currentScreen", this.currentScreen);
         } else {
         }
 
@@ -2010,6 +2155,7 @@ class TunaAdventureGame {
     // Don't remove localStorage - keep game state for restoration
     this.gameState = "waiting";
     this.isGameStarted = false;
+    // console.trace("isGameStarted", this.isGameStarted);
     // this.isWaitingForAdmin = true;
     this.currentScenarioPosition = 0;
     this.currentScreen = "welcome-content";
@@ -2059,6 +2205,7 @@ class TunaAdventureGame {
       hasCurrentScenario: !!this.currentScenario
     });
 
+    // console.trace("Game state to save:", gameState);
     localStorage.setItem(STORAGE_KEYS.GAME_STATE, JSON.stringify(gameState));
 
     // Verify the save worked
@@ -2080,13 +2227,13 @@ class TunaAdventureGame {
     });
 
     try {
-      if (this.teamData) {
-        const serverState = await this.fetchServerState();
-        if (serverState) {
-          const restored = await this.handleServerState(serverState);
-          if (restored) return true;
-        }
-      }
+      // if (this.teamData) {
+      //   const serverState = await this.fetchServerState();
+      //   if (serverState) {
+      //     const restored = await this.handleServerState(serverState);
+      //     if (restored) return true;
+      //   }
+      // }
 
       const localRestored = await this.handleLocalStateFallback();
       if (localRestored) return true;
@@ -2155,7 +2302,10 @@ class TunaAdventureGame {
 
   restoreCompleteState() {
     this.currentScreen = "complete-content";
+
+    // console.trace("currentScreen", this.currentScreen);
     this.gameState = "ended";
+    // console.trace("gameState", this.gameState);
     this.showAppropriateContent();
     this.trackPerformance("restore", true);
     return true;
@@ -2170,6 +2320,8 @@ class TunaAdventureGame {
 
   restoreWelcomeState(serverState) {
     this.currentScreen = "welcome-content";
+
+    // console.trace("currentScreen", this.currentScreen);
     this.gameState = "waiting";
     // this.isWaitingForAdmin = true;
 
@@ -2234,6 +2386,8 @@ class TunaAdventureGame {
 
   restoreResultsOrLeaderboard(savedState, serverState) {
     this.currentScreen = savedState.currentScreen;
+
+    // console.trace("currentScreen", this.currentScreen);
     this.gameState = "waiting";
     // this.isWaitingForAdmin = true;
 
@@ -2253,10 +2407,13 @@ class TunaAdventureGame {
 
   restoreDecisionState(serverState) {
     this.currentScreen = "decision-content";
+
+    // console.trace("currentScreen", this.currentScreen);
     this.currentScenario = serverState.currentScenario;
 
     this.gameState = "running";
     this.isGameStarted = true;
+    // console.trace("isGameStarted", this.isGameStarted);
     this.isWaitingForAdmin = false;
 
     this.showAppropriateContent();
@@ -2267,11 +2424,14 @@ class TunaAdventureGame {
 
   async restoreScenarioDefault(serverState) {
     this.currentScreen = "scenario-content";
+
+    // console.trace("currentScreen", this.currentScreen);
     this.currentScenario = serverState.currentScenario;
     this.currentScenarioPosition = serverState.currentPosition;
 
     this.gameState = "running";
     this.isGameStarted = true;
+    // console.trace("isGameStarted", this.isGameStarted);
     this.isWaitingForAdmin = false;
 
     this.updateScenarioUI();
@@ -2318,6 +2478,8 @@ class TunaAdventureGame {
     }
 
     this.currentScreen = "welcome-content";
+
+    // console.trace("currentScreen", this.currentScreen);
     this.gameState = "waiting";
     // this.isWaitingForAdmin = true;
 
@@ -2333,9 +2495,11 @@ class TunaAdventureGame {
 
   handleFallbackState(serverState) {
     this.currentScreen = "welcome-content";
+
+    // console.trace("currentScreen", this.currentScreen);
     this.gameState = "waiting";
 
-    this.showAppropriateContent();
+    // this.showAppropriateContent();
     this.trackPerformance("restore", true);
     return true;
   }
@@ -2349,8 +2513,9 @@ class TunaAdventureGame {
     const savedState = this.loadSavedGameState();
     if (!savedState) return false;
 
+    // console.log(savedState);
     if (!savedState.teamData ||
-      savedState.teamData.currentPosition <= 1) {
+      savedState.currentScenarioPosition < 1) {
       this.clearGameState();
       return false;
     }
@@ -2361,13 +2526,16 @@ class TunaAdventureGame {
     this.resultsData = savedState.resultsData;
 
     this.currentScreen = savedState.currentScreen || "welcome-content";
+
+    // console.trace("currentScreen", this.currentScreen);
     this.gameState = savedState.gameState || "waiting";
+    // console.log(this.gameState)
 
     if (this.currentScreen === "decision-content") {
       this.restoreTimerState();
     }
 
-    this.showAppropriateContent();
+    this.showAppropriateContent(this.currentScreen);
     this.trackPerformance("restore", true);
     return true;
   }
@@ -2381,7 +2549,7 @@ class TunaAdventureGame {
     const timerState = localStorage.getItem("tuna_timer_state");
     if (timerState && !this.teamData) {
       this.restoreTimerState();
-      this.showAppropriateContent();
+      // this.showAppropriateContent();
       return true;
     }
     return false;
@@ -2412,8 +2580,11 @@ class TunaAdventureGame {
         if (!serverState.currentScenario || gameState.data.status === 'menunggu') {
           this.currentScenario = null;
           this.isGameStarted = false;
+          // console.trace("isGameStarted", this.isGameStarted);
           // this.isWaitingForAdmin = true;
           this.currentScreen = "welcome-content";
+
+          // console.trace("currentScreen", this.currentScreen);
           this.logger.info("No current scenario, showing welcome content");
         } else {
           // We have a current scenario
@@ -2425,10 +2596,13 @@ class TunaAdventureGame {
             this.currentScreen !== "leaderboard-content"
           ) {
             this.currentScreen = "scenario-content";
+
+            // console.trace("currentScreen", this.currentScreen);
           } else {
           }
           this.gameState = "running";
           this.isGameStarted = true;
+          // console.trace("isGameStarted", this.isGameStarted);
           this.isWaitingForAdmin = false;
 
           // Don't update scenario UI if user is viewing results or leaderboard
@@ -2452,7 +2626,7 @@ class TunaAdventureGame {
         this.updateGameUI();
 
 
-        this.showAppropriateContent();
+        // this.showAppropriateContent();
 
         this.logger.info("Successfully synced with server state", {
           currentPosition: serverState.currentPosition,
@@ -2467,8 +2641,8 @@ class TunaAdventureGame {
     }
   }
 
-  async showAppropriateContent() {
-    return this.uiRenderer.showAppropriateContent();
+  async showAppropriateContent(screen = null) {
+    return this.uiRenderer.showAppropriateContent(screen ?? null);
   }
 
   /* =============================================================================

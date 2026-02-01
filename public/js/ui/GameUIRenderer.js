@@ -4,16 +4,16 @@ export class GameUIRenderer {
   }
 
   // Main content display methods
-  async showAppropriateContent() {
-    console.log("showAppropriateContent called", {
-      currentScreen: this.game.currentScreen,
-      gameState: this.game.gameState,
-      isGameStarted: this.game.isGameStarted,
-      currentPosition: this.game.teamData?.currentPosition,
-      hasCurrentScenario: !!this.game.currentScenario,
-      currentScenario: this.game.currentScenario,
-      isKicked: this.game.isKicked
-    });
+  async showAppropriateContent(screen = null) {
+    // console.trace("showAppropriateContent called", {
+    //   currentScreen: this.game.currentScreen,
+    //   gameState: this.game.gameState,
+    //   isGameStarted: this.game.isGameStarted,
+    //   currentPosition: this.game.teamData?.currentPosition,
+    //   hasCurrentScenario: !!this.game.currentScenario,
+    //   currentScenario: this.game.currentScenario,
+    //   isKicked: this.game.isKicked
+    // });
 
     this.debugDOMState("BEFORE");
 
@@ -30,7 +30,8 @@ export class GameUIRenderer {
 
     const teamData = await this.game.apiService.request("/game/status");
 
-    if (teamData.data.game.status === 'menunggu') this.game.currentScreen = 'welcome-content'
+    if(screen) this.game.currentScreen = screen
+    else if (teamData.data.game.status === 'menunggu') this.game.currentScreen = 'welcome-content'
     else if (teamData.data.game.status === 'selesai') this.game.currentScreen = "complete-content";
     else if (!teamData.data.completeCurrentStep) this.game.currentScreen = "scenario-content";
     else if (teamData.data.completeCurrentStep) {
@@ -58,6 +59,9 @@ export class GameUIRenderer {
     this.updateGameStateUI();
     this.debugDOMState("FINAL");
     this.logScenarioElements();
+    const state = JSON.parse(localStorage.getItem('tuna_game_state'));
+    state.currentScreen = this.game.currentScreen === "leaderboard-content" ? "results-content" : this.game.currentScreen;
+    localStorage.setItem('tuna_game_state', JSON.stringify(state));
   }
 
   // Helper methods for content display
