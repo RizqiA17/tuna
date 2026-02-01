@@ -155,13 +155,13 @@
 
                     <div class="game-control-panel">
                         <div class="control-buttons">
-                            <button id="startGameAllBtn" class="btn btn-success btn-large">
+                            <button id="startGameAllBtn" class="btn btn-success btn-large" style="display: none;">
                                 <i class="fas fa-play"></i> Start Game for All Teams
                             </button>
-                            <button id="nextScenarioAllBtn" class="btn btn-primary btn-large">
+                            <button id="nextScenarioAllBtn" class="btn btn-primary btn-large" style="display: none;">
                                 <i class="fas fa-arrow-right"></i> Next Scenario for All Teams
                             </button>
-                            <button id="endGameAllBtn" class="btn btn-danger btn-large">
+                            <button id="endGameAllBtn" class="btn btn-danger btn-large" style="display: none;">
                                 <i class="fas fa-stop"></i> End Game for All Teams
                             </button>
                             <button id="resetGameAllBtn" class="btn btn-warning btn-large">
@@ -172,19 +172,19 @@
                             </button>
                         </div>
 
-                        <div class="game-status">
+                        <div class="game-status" style="display: none;">
                             <span class="status-label">Game Status:</span>
                             <span id="gameStatus" class="status-value">Waiting</span>
                         </div>
-                        <div class="status-indicator">
+                        <div class="status-indicator" style="display: none;">
                             <span class="status-label">Connected Teams:</span>
                             <span id="connectedTeamsCount" class="status-value">0</span>
                         </div>
-                        <div class="status-indicator">
+                        <div class="status-indicator" style="display: none;">
                             <span class="status-label">Teams Completed:</span>
                             <span id="teamCompleted" class="status-value">0/0</span>
                         </div>
-                        <div class="status-indicator">
+                        <div class="status-indicator" style="display: none;">
                             <span class="status-label">Position:</span>
                             <span id="currentPosition" class="status-value">0</span>
                         </div>

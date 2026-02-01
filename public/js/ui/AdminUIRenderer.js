@@ -1,3 +1,4 @@
+import { formatDate } from "../utils/helpers.js";
 export class AdminUIRenderer {
     constructor(adminInstance) {
         this.admin = adminInstance;
@@ -92,7 +93,7 @@ export class AdminUIRenderer {
 
         this.admin.leaderboardData.forEach((team, index) => {
             const row = document.createElement("tr");
-            const rankClass = this.getRankClass(index + 1);
+            const rankClass = index + 1;
 
             row.innerHTML = `
                 <td>
@@ -233,58 +234,58 @@ export class AdminUIRenderer {
     }
 
     updateGameControlButtons() {
-        const startBtn = document.getElementById("startGameAllBtn");
-        const nextBtn = document.getElementById("nextScenarioAllBtn");
-        const endBtn = document.getElementById("endGameAllBtn");
+        // const startBtn = document.getElementById("startGameAllBtn");
+        // const nextBtn = document.getElementById("nextScenarioAllBtn");
+        // const endBtn = document.getElementById("endGameAllBtn");
         const resetBtn = document.getElementById("resetGameAllBtn");
 
-        if (startBtn) {
-            if (this.admin.gameState === "waiting") {
-                startBtn.style.display = "block";
-                startBtn.disabled = false;
-                startBtn.textContent = "🎮 Mulai Permainan";
-            } else if (this.admin.gameState === "running") {
-                startBtn.style.display = "none";
-            }
-        }
+        // if (startBtn) {
+        //     if (this.admin.gameState === "waiting") {
+        //         startBtn.style.display = "block";
+        //         startBtn.disabled = false;
+        //         startBtn.textContent = "🎮 Mulai Permainan";
+        //     } else if (this.admin.gameState === "running") {
+        //         startBtn.style.display = "none";
+        //     }
+        // }
 
 
-        if (nextBtn) {
-            if (this.admin.gameState === "running") {
-                // Check if all CONNECTED teams completed current step
-                // If no teams are connected, allow admin to proceed
-                const allConnectedTeamsCompleted =
-                    this.admin.connectedTeams.size === 0 ||
-                    this.admin.teamsCompletedCurrentStep.size >= this.admin.connectedTeams.size;
+        // if (nextBtn) {
+        //     if (this.admin.gameState === "running") {
+        //         // Check if all CONNECTED teams completed current step
+        //         // If no teams are connected, allow admin to proceed
+        //         const allConnectedTeamsCompleted =
+        //             this.admin.connectedTeams.size === 0 ||
+        //             this.admin.teamsCompletedCurrentStep.size >= this.admin.connectedTeams.size;
 
-                nextBtn.style.display = "block";
-                nextBtn.disabled = false;
+        //         nextBtn.style.display = "block";
+        //         nextBtn.disabled = false;
 
-                nextBtn.textContent = "➡️ Lanjut ke Step Berikutnya";
-                // if (this.admin.connectedTeams.size === 0) {
-                //     nextBtn.textContent = '➡️ Lanjut ke Step Berikutnya (Tidak ada tim yang terhubung)';
-                // } else {
-                //     nextBtn.textContent = allConnectedTeamsCompleted ?
-                //         '➡️ Lanjut ke Step Berikutnya' :
-                //         `⏳ Menunggu Tim (${this.admin.teamsCompletedCurrentStep.size}/${this.admin.connectedTeams.size})`;
-                // }
+        //         nextBtn.textContent = "➡️ Lanjut ke Step Berikutnya";
+        //         // if (this.admin.connectedTeams.size === 0) {
+        //         //     nextBtn.textContent = '➡️ Lanjut ke Step Berikutnya (Tidak ada tim yang terhubung)';
+        //         // } else {
+        //         //     nextBtn.textContent = allConnectedTeamsCompleted ?
+        //         //         '➡️ Lanjut ke Step Berikutnya' :
+        //         //         `⏳ Menunggu Tim (${this.admin.teamsCompletedCurrentStep.size}/${this.admin.connectedTeams.size})`;
+        //         // }
 
-                console.log(
-                    `🎯 Step completion: ${this.admin.teamsCompletedCurrentStep.size}/${this.admin.connectedTeams.size} teams completed`
-                );
-            } else {
-                nextBtn.style.display = "none";
-            }
-        }
+        //         console.log(
+        //             `🎯 Step completion: ${this.admin.teamsCompletedCurrentStep.size}/${this.admin.connectedTeams.size} teams completed`
+        //         );
+        //     } else {
+        //         nextBtn.style.display = "none";
+        //     }
+        // }
 
-        if (endBtn) {
-            if (this.admin.gameState === "running" || this.admin.gameState === "waiting") {
-                endBtn.style.display = "block";
-                endBtn.disabled = false;
-            } else {
-                endBtn.style.display = "none";
-            }
-        }
+        // if (endBtn) {
+        //     if (this.admin.gameState === "running" || this.admin.gameState === "waiting") {
+        //         endBtn.style.display = "block";
+        //         endBtn.disabled = false;
+        //     } else {
+        //         endBtn.style.display = "none";
+        //     }
+        // }
 
         if (resetBtn) {
             // Reset button is always available
