@@ -2215,7 +2215,7 @@ class TunaAdventureGame {
 
   // Clear form only when starting a new scenario (not when restoring)
   clearDecisionFormForNewScenario() {
-    this.clearDecisionForm();
+    this.uiRenderer.clearDecisionFormForNewScenario();
   }
 
   // Check if form has data
@@ -2591,20 +2591,7 @@ class TunaAdventureGame {
   }
 
   forceShowWelcomeContent() {
-    // console.log("🔧 Force showing welcome content");
-    // Hide all content sections
-    document.querySelectorAll(".content-section").forEach((section) => {
-      section.classList.remove("active");
-    });
-
-    // Show welcome content
-    const welcomeElement = document.getElementById("welcome-content");
-    if (welcomeElement) {
-      welcomeElement.classList.add("active");
-      // console.log("✅ Welcome content forced to show");
-    } else {
-      // console.error("❌ Welcome content element not found");
-    }
+    this.uiRenderer.forceShowWelcomeContent();
   }
 
   saveGameState() {
@@ -3050,52 +3037,7 @@ class TunaAdventureGame {
   }
 
   async showAppropriateContent() {
-    // console.log("showAppropriateContent called", {currentScreen: this.currentScreen,gameState: this.gameState,isGameStarted: this.isGameStarted,currentPosition: this.teamData?.currentPosition,hasCurrentScenario: !!this.currentScenario,currentScenario: this.currentScenario,isKicked: this.isKicked});
-
-    this.debugDOMState("BEFORE");
-
-    if (this.isKicked && this.currentScreen !== "welcome-content") {
-      this.showNotification(
-        "Tim Anda telah dikeluarkan dari permainan. Silakan login ulang.",
-        "error"
-      );
-      this.logout();
-      return;
-    }
-
-    this.hideAllSections();
-
-    const teamData = await this.apiService.request("/game/status");
-    // console.log(teamData.data.completedDecisions);
-
-    if (teamData.data.game.status === 'menunggu') if (teamData.data.completedDecisions.length === 0) this.currentScreen = 'welcome-content'; else if(teamData.data.team.current_position > 7) this.currentScreen = "complete-content"; else this.currentScreen = "scenario-content";
-    else if (teamData.data.game.status === 'selesai') this.currentScreen = "complete-content";
-    else if (!teamData.data.completeCurrentStep) this.currentScreen = "scenario-content";
-    else if (teamData.data.completeCurrentStep) {
-      const me = await this.apiService.request("/auth/me");
-
-      const teamId = me.data.teamId;
-      const position = me.data.currentPosition - 1;
-
-      const response = await this.apiService.request(`/game/decision?teamId=${teamId}&position=${position}`);
-
-      this.showResults(response.data);
-
-      this.currentScreen = "results-content";
-    }
-    else this.currentScreen = "welcome-content";
-
-    if (this.shouldShowExplicitScreen()) {
-      this.activateSection(this.currentScreen);
-      this.debugDOMState("AFTER adding active class");
-      this.handleExplicitScreen();
-    } else {
-      this.showWelcomeAsDefault();
-    }
-
-    this.updateGameStateUI();
-    this.debugDOMState("FINAL");
-    this.logScenarioElements();
+    return this.uiRenderer.showAppropriateContent();
   }
 
   /* =============================================================================
@@ -3328,28 +3270,7 @@ class TunaAdventureGame {
   }
 
   showNotification(message, type = "info") {
-    const notification = document.getElementById("notification");
-    const icon = notification.querySelector(".notification-icon");
-    const messageEl = notification.querySelector(".notification-message");
-
-    // Set icon based on type
-    const icons = {
-      success: "fas fa-check-circle",
-      error: "fas fa-exclamation-circle",
-      warning: "fas fa-exclamation-triangle",
-      info: "fas fa-info-circle",
-    };
-
-    icon.className = `notification-icon ${icons[type] || icons.info}`;
-    messageEl.textContent = message;
-
-    // Show notification
-    notification.className = `notification ${type} show`;
-
-    // Auto hide after 5 seconds
-    setTimeout(() => {
-      notification.classList.remove("show");
-    }, 5000);
+    this.uiRenderer.showNotification(message, type);
   }
 
   // Dark Mode Management
