@@ -12,22 +12,14 @@ class TunaAdventureGame {
     this.wsService = new WebSocketService();
     this.teamData = null;
     this.currentScenario = null;
-    this.timeLeft = 300; // 15 minutes in seconds
-    this.timer = null;
     this.playerCount = 1;
     this.isGameStarted = false;
-    this.isWaitingForAdmin = false;
     this.gameState = "waiting"; // waiting, running, ended
     this.currentScenarioPosition = 0;
     this.hasJoinedAsTeam = false;
     this.isKicked = false; // Flag to track if team has been kicked
     this.logger = window.TeamLogger || new Logger("TEAM");
 
-    // Timer persistence properties
-    this.timerStartTime = null;
-    this.timerDuration = 900; // Default 15 minutes in seconds (will be overridden by API)
-    this.isTimerActive = false;
-    this.isTimerRestoring = false; // Flag to prevent multiple restoration
     this.currentScreen = "login-screen";
 
     // Browser event handling properties
@@ -136,7 +128,6 @@ class TunaAdventureGame {
           });
           this.token = null;
           localStorage.removeItem("tuna_token");
-          this.clearTimerState();
           clearTimeout(fallbackTimeout);
           this.showScreen("login-screen");
           this.showNotification(
@@ -634,7 +625,7 @@ class TunaAdventureGame {
 
     // Handle storage events for multi-tab synchronization
     window.addEventListener('storage', (event) => {
-      if (event.key === 'tuna_game_state' || event.key === 'tuna_timer_state') {
+      if (event.key === 'tuna_game_state') {
         this.logger.info("Storage event detected - syncing with other tabs", {
           key: event.key,
           newValue: event.newValue ? 'present' : 'null'
@@ -678,15 +669,6 @@ class TunaAdventureGame {
           currentScreen: this.currentScreen,
           gameState: this.gameState,
           hasTeamData: !!this.teamData
-        });
-      }
-
-      // Save timer state if timer is active
-      if (this.isTimerActive && this.timerStartTime) {
-        this.saveTimerState();
-        this.logger.info("Timer state saved on unload", {
-          isTimerActive: this.isTimerActive,
-          timeLeft: this.timeLeft
         });
       }
 
@@ -1209,15 +1191,16 @@ class TunaAdventureGame {
     }
 
     // Listen for admin commands
-    this.wsService.on("game-start-command", () => {
-      // console.log("🎮 Received game start command from admin");
-      this.startGameFromAdmin();
-    });
+    // Game start and next scenario are now self-controlled
+    // this.wsService.on("game-start-command", () => {
+    //   // console.log("🎮 Received game start command from admin");
+    //   this.startGameFromAdmin();
+    // });
 
-    this.wsService.on("next-scenario-command", () => {
-      // console.log("➡️ Received next scenario command from admin");
-      this.nextScenarioFromAdmin();
-    });
+    // this.wsService.on("next-scenario-command", () => {
+    //   // console.log("➡️ Received next scenario command from admin");
+    //   this.nextScenarioFromAdmin();
+    // });
 
     this.wsService.on("end-game-command", () => {
       // console.log("🏁 Received end game command from admin");
@@ -1247,7 +1230,6 @@ class TunaAdventureGame {
 
       // Clear all game state and storage
       this.clearGameStateAndStorage();
-      localStorage.removeItem("tuna_timer_state");
 
       // Disconnect from WebSocket to prevent reconnection
       if (this.wsService) {
@@ -1334,14 +1316,6 @@ class TunaAdventureGame {
       return;
     }
 
-    // if (this.isWaitingForAdmin) {
-    //   this.showNotification(
-    //     "Menunggu admin untuk memulai permainan...",
-    //     "info"
-    //   );
-    //   return;
-    // }
-
     try {
       // Check if team is continuing from a previous position
       if (this.teamData && this.teamData.currentPosition > 1) {
@@ -1386,8 +1360,9 @@ class TunaAdventureGame {
 
       if (response.success) {
         this.currentScenario = response.scenario;
-        this.timeLeft = response.timeLimit;
         this.currentScenarioPosition = response.scenario.position || 0;
+        this.isGameStarted = true;
+        this.gameState = "running";
         this.updateScenarioUI();
         // Clear form fields for new scenario
         this.clearDecisionFormForNewScenario();
@@ -1403,6 +1378,9 @@ class TunaAdventureGame {
         // console.log("🔄 currentScreen changed to scenario-content (line 1606)");
         // console.log("🔄 currentScreen changed to scenario-content (line 1707)");
         this.currentScreen = "scenario-content";
+        this.updateGameStateUI();
+        this.updateGameUI();
+        this.saveGameState();
 
         this.showNotification(
           "Petualangan dimulai! Baca scenario dengan teliti.",
@@ -1435,11 +1413,10 @@ class TunaAdventureGame {
 
       if (response.success) {
         this.currentScenario = response.scenario;
-        this.timeLeft = response.timeLimit;
+        this.currentScenarioPosition = response.scenario.position || 0;
         this.isGameStarted = true;
         this.isWaitingForAdmin = false;
         this.gameState = "running";
-        this.currentScenarioPosition = response.scenario.position || 0;
         // console.log("🔄 currentScreen changed to scenario-content (line 769)");
         // console.log("🔄 currentScreen changed to scenario-content (line 807)");
         // console.log("🔄 currentScreen changed to scenario-content (line 1092)");
@@ -1516,9 +1493,6 @@ class TunaAdventureGame {
     this.currentScreen = "welcome-content";
     this.currentScenarioPosition = 0;
     this.currentScenario = null;
-    this.timeLeft = 300;
-    this.stopTimer();
-    this.clearTimerState();
 
     // Reset team data to initial state
     if (this.teamData) {
@@ -1528,7 +1502,6 @@ class TunaAdventureGame {
 
     // Clear all saved states and storage
     this.clearGameStateAndStorage();
-    localStorage.removeItem(STORAGE_KEYS.TIMER_STATE);
 
     // Update UI
     this.updateGameUI();
@@ -1547,8 +1520,8 @@ class TunaAdventureGame {
     if (startGameBtn) {
       if (this.gameState === "waiting" || gameStatus === "menunggu") {
         startGameBtn.style.display = "block";
-        // startGameBtn.textContent = "⏳ Menunggu Admin...";
-        // startGameBtn.disabled = true;
+        startGameBtn.textContent = "🚀 Mulai Petualangan";
+        startGameBtn.disabled = false;
       } else if (this.gameState === "running" || gameStatus === "mulai") {
         startGameBtn.style.display = "none";
       } else if (this.gameState === "ended" || gameStatus === "selesai") {
@@ -1559,7 +1532,14 @@ class TunaAdventureGame {
     }
 
     // Update next scenario button visibility
-    // Next scenario button removed - controlled by admin only
+    const nextScenarioBtn = document.getElementById("nextScenarioBtn");
+    if (nextScenarioBtn) {
+      if (this.gameState === "running" || gameStatus === "mulai") {
+        nextScenarioBtn.style.display = "block";
+      } else {
+        nextScenarioBtn.style.display = "none";
+      }
+    }
   }
 
   async startDecision() {
@@ -1597,33 +1577,7 @@ class TunaAdventureGame {
     this.currentScreen = "decision-content";
     this.saveGameState();
 
-    // Check if we should restore timer or start fresh
-    // Only restore if timer state exists AND is for the same scenario position
-    const timerRestored = this.restoreTimerState();
-    if (!timerRestored) {
-      // Start fresh timer with full time limit
-      // Get time limit from server if available, otherwise use stored duration
-      if (!this.timeLeft || this.timeLeft <= 0) {
-        // Try to get from server first
-        try {
-          const statusResponse = await this.apiService.request("/game/status");
-          if (statusResponse.success && statusResponse.data.timeLimit) {
-            this.timerDuration = parseInt(statusResponse.data.timeLimit);
-            this.timeLeft = this.timerDuration;
-          }
-        } catch (error) {
-          this.logger.warn("Failed to get time limit from server, using stored duration", error);
-        }
-      }
-      this.startTimer();
-    }
-
-    // Show notification with actual time limit
-    const minutes = Math.floor((this.timeLeft || this.timerDuration || 900) / 60);
-    // this.showNotification(
-    //   `Waktu diskusi dimulai! Anda memiliki ${minutes} menit.`,
-    //   "info"
-    // );
+    // No timer functionality - game is self-paced
   }
 
   async submitDecision() {
@@ -1675,7 +1629,6 @@ class TunaAdventureGame {
     };
 
     try {
-      this.stopTimer();
       const response = await this.apiService.request("/game/submit-decision", {
         method: "POST",
         body: JSON.stringify(data),
@@ -1716,7 +1669,6 @@ class TunaAdventureGame {
       }
     } catch (error) {
       this.showNotification(error.message, "error");
-      this.startTimer(); // Restart timer on error
     }
   }
 
@@ -1927,8 +1879,6 @@ class TunaAdventureGame {
       this.forceSubmit();
     }
 
-    this.prepareNewScenarioTimer();
-
     try {
       const gameStatus = await this.apiService.request("/game/status");
       const nextScenario = this.getScenarioByPosition(
@@ -1943,8 +1893,6 @@ class TunaAdventureGame {
       this.currentScenario = nextScenario;
       this.updateScenarioUI();
       this.clearDecisionFormForNewScenario();
-
-      await this.updateTimeLimitFromServer();
 
       if (gameStatus.data.game.status === "mulai") {
         this.currentScreen = "scenario-content";
@@ -1987,10 +1935,7 @@ class TunaAdventureGame {
   }
 
   prepareNewScenarioTimer() {
-    this.stopTimer();
-    this.clearTimerState();
-    this.timeLeft = null;
-    this.timerDuration = 900;
+    // No timer functionality needed for self-controlled game
   }
 
   async updateTimeLimitFromServer() {
@@ -2613,11 +2558,6 @@ class TunaAdventureGame {
       this.isTimerRestoring = false;
     }
     return false;
-  }
-
-  clearTimerState() {
-    localStorage.removeItem(STORAGE_KEYS.TIMER_STATE);
-    this.isTimerRestoring = false;
   }
 
   clearGameState() {
