@@ -156,6 +156,11 @@ router.post("/login", authRateLimit, validateTeamLogin, async (req, res) => {
             }
         }
 
+        await executeQuery(
+            "DELETE FROM team_decisions WHERE team_id = ?",
+            [team[0].id]
+        );
+
         const token = generateToken(team[0].id);
 
         const players = await executeQuery(

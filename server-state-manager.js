@@ -133,8 +133,8 @@ class GameStateManager {
       if (fs.existsSync(BACKUP_FILE)) {
         console.log('🔄 Attempting to restore from backup...');
         try {
-          fs.copyFileSync(BACKUP_FILE, SESSION_STATE_FILE);
-          await this.loadFromFile(); // Recursive call with backup
+          // fs.copyFileSync(BACKUP_FILE, SESSION_STATE_FILE);
+          // await this.loadFromFile(); // Recursive call with backup
           console.log('✅ Restored from backup successfully');
           return;
         } catch (backupError) {

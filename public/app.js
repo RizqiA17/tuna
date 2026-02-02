@@ -1892,8 +1892,21 @@ class TunaAdventureGame {
 
     this.token = null;
     localStorage.removeItem("tuna_token");
+    localStorage.removeItem("tuna_game_state");
     this.teamData = null;
     this.currentScenario = null;
+
+
+    this.hideSections([
+      "leaderboard-content",
+      "welcome-content",
+      "scenario-content",
+      "decision-content",
+      "results-content",
+      "complete-content"
+    ]);
+
+    document.getElementById("welcome-content").classList.add("active");
 
     // Save timer state before stopping timer
     if (this.isTimerActive && this.timerStartTime) {
